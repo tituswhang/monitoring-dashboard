@@ -3,6 +3,9 @@
 build/
 !gradle/wrapper/gradle-wrapper.jar
 
+# Maven
+target/
+
 # IntelliJ IDEA
 .idea/
 *.iml
@@ -10,19 +13,49 @@ build/
 *.ipr
 out/
 
+# Eclipse
+.project
+.classpath
+.settings/
+
+# VS Code
+.vscode/
+
 # Spring Boot
 *.log
 spring-pid
+HELP.md
+
+# Test & coverage reports
+backend/build/reports/
 
 # OS
 .DS_Store
 Thumbs.db
+desktop.ini
 
-# Frontend
-node_modules/
+# Frontend build output
 frontend/dist/
+frontend/.vite/
 
-# Environment files
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# TypeScript
+*.tsbuildinfo
+
+# Environment / secrets
 .env
 .env.*
 !.env.example
+application-local.yml
+
+# Docker
+*.tar
+
+# Kubernetes secrets (never commit real values)
+backend/manifests/**/secret.yaml

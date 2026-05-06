@@ -1,5 +1,5 @@
 {
-  "name": "msor-monitoring-dashboard",
+  "name": "monitoring-dashboard",
   "version": "0.1.0",
   "private": true,
   "type": "module",
