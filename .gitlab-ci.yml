@@ -1,0 +1,227 @@
+# -----------------------------------------------------------------------
+#  Service DB credentials
+# -----------------------------------------------------------------------
+.service-db-secret-manager-script: &service-db-secret-manager-script
+  - export DB_HOST=$(aws secretsmanager get-secret-value --secret-id SECRET-YOUR-ORG-RDS-${ENV}-MONITORING-DB --region us-east-1 --query SecretString --output text | jq '.host' | sed 's/"//g')
+  - export DB_USER=$(aws secretsmanager get-secret-value --secret-id SECRET-YOUR-ORG-RDS-${ENV}-MONITORING-DB --region us-east-1 --query SecretString --output text | jq '.username' | sed 's/"//g')
+  - export DB_PASSWORD=$(aws secretsmanager get-secret-value --secret-id SECRET-YOUR-ORG-RDS-${ENV}-MONITORING-DB --region us-east-1 --query SecretString --output text | jq '.password' | sed 's/"//g')
+
+.service-db-secret-manager-replace-script: &service-db-secret-manager-replace-script
+  - sed -i "s,ENV_DB_HOST,${DB_HOST},g" backend/manifests/${CI_ENVIRONMENT_NAME}/secret.yaml
+  - sed -i "s,ENV_DB_USER,${DB_USER},g" backend/manifests/${CI_ENVIRONMENT_NAME}/secret.yaml
+  - sed -i "s,ENV_DB_PASSWORD,${DB_PASSWORD},g" backend/manifests/${CI_ENVIRONMENT_NAME}/secret.yaml
+
+.service-db-secret-manager-replace-script-ENV_NUM: &service-db-secret-manager-replace-script-ENV_NUM
+  - sed -i "s,ENV_DB_HOST,${DB_HOST},g" backend/manifests/${CI_ENVIRONMENT_NAME}_env/secret.yaml
+  - sed -i "s,ENV_DB_USER,${DB_USER},g" backend/manifests/${CI_ENVIRONMENT_NAME}_env/secret.yaml
+  - sed -i "s,ENV_DB_PASSWORD,${DB_PASSWORD},g" backend/manifests/${CI_ENVIRONMENT_NAME}_env/secret.yaml
+
+# -----------------------------------------------------------------------
+#  Database1 credentials
+# -----------------------------------------------------------------------
+.database1-secret-manager-script: &database1-secret-manager-script
+  - export DB1_HOST=$(aws secretsmanager get-secret-value --secret-id SECRET-YOUR-ORG-RDS-${ENV}-SOURCE-DB/app_user --region us-east-1 --query SecretString --output text | jq '.host' | sed 's/"//g')
+  - export DB1_USER=$(aws secretsmanager get-secret-value --secret-id SECRET-YOUR-ORG-RDS-${ENV}-SOURCE-DB/app_user --region us-east-1 --query SecretString --output text | jq '.username' | sed 's/"//g')
+  - export DB1_PASSWORD=$(aws secretsmanager get-secret-value --secret-id SECRET-YOUR-ORG-RDS-${ENV}-SOURCE-DB/app_user --region us-east-1 --query SecretString --output text | jq '.password' | sed 's/"//g')
+  - export DB1_NAME=$(aws secretsmanager get-secret-value --secret-id SECRET-YOUR-ORG-RDS-${ENV}-SOURCE-DB/app_user --region us-east-1 --query SecretString --output text | jq '.dbname' | sed 's/"//g')
+
+.database1-secret-manager-replace-script: &database1-secret-manager-replace-script
+  - sed -i "s,ENV_DB1_HOST,${DB1_HOST},g" backend/manifests/${CI_ENVIRONMENT_NAME}/secret.yaml
+  - sed -i "s,ENV_DB1_USER,${DB1_USER},g" backend/manifests/${CI_ENVIRONMENT_NAME}/secret.yaml
+  - sed -i "s,ENV_DB1_PASSWORD,${DB1_PASSWORD},g" backend/manifests/${CI_ENVIRONMENT_NAME}/secret.yaml
+  - sed -i "s,ENV_DB1_NAME,${DB1_NAME},g" backend/manifests/${CI_ENVIRONMENT_NAME}/secret.yaml
+
+.database1-secret-manager-replace-script-ENV_NUM: &database1-secret-manager-replace-script-ENV_NUM
+  - sed -i "s,ENV_DB1_HOST,${DB1_HOST},g" backend/manifests/${CI_ENVIRONMENT_NAME}_env/secret.yaml
+  - sed -i "s,ENV_DB1_USER,${DB1_USER},g" backend/manifests/${CI_ENVIRONMENT_NAME}_env/secret.yaml
+  - sed -i "s,ENV_DB1_PASSWORD,${DB1_PASSWORD},g" backend/manifests/${CI_ENVIRONMENT_NAME}_env/secret.yaml
+  - sed -i "s,ENV_DB1_NAME,${DB1_NAME},g" backend/manifests/${CI_ENVIRONMENT_NAME}_env/secret.yaml
+
+# -----------------------------------------------------------------------
+#  Database2 credentials
+# -----------------------------------------------------------------------
+.database2-secret-manager-script: &database2-secret-manager-script
+  - export DB2_HOST=$(aws secretsmanager get-secret-value --secret-id SECRET-YOUR-ORG-RDS-${ENV}-MICROSERVICE/app --region us-east-1 --query SecretString --output text | jq '.host' | sed 's/"//g')
+  - export DB2_USER=$(aws secretsmanager get-secret-value --secret-id SECRET-YOUR-ORG-RDS-${ENV}-MICROSERVICE/app --region us-east-1 --query SecretString --output text | jq '.username' | sed 's/"//g')
+  - export DB2_PASSWORD=$(aws secretsmanager get-secret-value --secret-id SECRET-YOUR-ORG-RDS-${ENV}-MICROSERVICE/app --region us-east-1 --query SecretString --output text | jq '.password' | sed 's/"//g')
+  - export DB2_NAME=$(aws secretsmanager get-secret-value --secret-id SECRET-YOUR-ORG-RDS-${ENV}-MICROSERVICE/app --region us-east-1 --query SecretString --output text | jq '.database' | sed 's/"//g')
+
+.database2-secret-manager-replace-script: &database2-secret-manager-replace-script
+  - sed -i "s,ENV_DB2_HOST,${DB2_HOST},g" backend/manifests/${CI_ENVIRONMENT_NAME}/secret.yaml
+  - sed -i "s,ENV_DB2_USER,${DB2_USER},g" backend/manifests/${CI_ENVIRONMENT_NAME}/secret.yaml
+  - sed -i "s,ENV_DB2_PASSWORD,${DB2_PASSWORD},g" backend/manifests/${CI_ENVIRONMENT_NAME}/secret.yaml
+  - sed -i "s,ENV_DB2_NAME,${DB2_NAME},g" backend/manifests/${CI_ENVIRONMENT_NAME}/secret.yaml
+
+.database2-secret-manager-replace-script-ENV_NUM: &database2-secret-manager-replace-script-ENV_NUM
+  - sed -i "s,ENV_DB2_HOST,${DB2_HOST},g" backend/manifests/${CI_ENVIRONMENT_NAME}_env/secret.yaml
+  - sed -i "s,ENV_DB2_USER,${DB2_USER},g" backend/manifests/${CI_ENVIRONMENT_NAME}_env/secret.yaml
+  - sed -i "s,ENV_DB2_PASSWORD,${DB2_PASSWORD},g" backend/manifests/${CI_ENVIRONMENT_NAME}_env/secret.yaml
+  - sed -i "s,ENV_DB2_NAME,${DB2_NAME},g" backend/manifests/${CI_ENVIRONMENT_NAME}_env/secret.yaml
+
+# -----------------------------------------------------------------------
+#  Database3 credentials
+# -----------------------------------------------------------------------
+.database3-secret-manager-script: &database3-secret-manager-script
+  - export DB3_HOST=$(aws secretsmanager get-secret-value --secret-id SECRET-YOUR-ORG-RDS-DB3-${ENV}-01 --region us-east-1 --query SecretString --output text | jq '.host' | sed 's/"//g')
+  - export DB3_USER=$(aws secretsmanager get-secret-value --secret-id SECRET-YOUR-ORG-RDS-DB3-${ENV}-01 --region us-east-1 --query SecretString --output text | jq '.username' | sed 's/"//g')
+  - export DB3_PASSWORD=$(aws secretsmanager get-secret-value --secret-id SECRET-YOUR-ORG-RDS-DB3-${ENV}-01 --region us-east-1 --query SecretString --output text | jq '.password' | sed 's/"//g')
+  - export DB3_NAME=$(aws secretsmanager get-secret-value --secret-id SECRET-YOUR-ORG-RDS-DB3-${ENV}-01 --region us-east-1 --query SecretString --output text | jq '.dbname' | sed 's/"//g')
+
+.database3-secret-manager-replace-script: &database3-secret-manager-replace-script
+  - sed -i "s,ENV_DB3_HOST,${DB3_HOST},g" backend/manifests/${CI_ENVIRONMENT_NAME}/secret.yaml
+  - sed -i "s,ENV_DB3_USER,${DB3_USER},g" backend/manifests/${CI_ENVIRONMENT_NAME}/secret.yaml
+  - sed -i "s,ENV_DB3_PASSWORD,${DB3_PASSWORD},g" backend/manifests/${CI_ENVIRONMENT_NAME}/secret.yaml
+  - sed -i "s,ENV_DB3_NAME,${DB3_NAME},g" backend/manifests/${CI_ENVIRONMENT_NAME}/secret.yaml
+
+.database3-secret-manager-replace-script-ENV_NUM: &database3-secret-manager-replace-script-ENV_NUM
+  - sed -i "s,ENV_DB3_HOST,${DB3_HOST},g" backend/manifests/${CI_ENVIRONMENT_NAME}_env/secret.yaml
+  - sed -i "s,ENV_DB3_USER,${DB3_USER},g" backend/manifests/${CI_ENVIRONMENT_NAME}_env/secret.yaml
+  - sed -i "s,ENV_DB3_PASSWORD,${DB3_PASSWORD},g" backend/manifests/${CI_ENVIRONMENT_NAME}_env/secret.yaml
+  - sed -i "s,ENV_DB3_NAME,${DB3_NAME},g" backend/manifests/${CI_ENVIRONMENT_NAME}_env/secret.yaml
+
+# -----------------------------------------------------------------------
+#  SendGrid + Slack credentials (commented out until secrets are provisioned)
+# -----------------------------------------------------------------------
+# .notification-secret-manager-script: &notification-secret-manager-script
+#   - export SENDGRID_API_KEY=$(aws secretsmanager get-secret-value --secret-id SECRET-YOUR-ORG-SENDGRID-${ENV}-01 --region us-east-1 --query SecretString --output text | jq '.api_key' | sed 's/"//g')
+#   - export SLACK_WEBHOOK_URL=$(aws secretsmanager get-secret-value --secret-id SECRET-YOUR-ORG-SLACK-${ENV}-01 --region us-east-1 --query SecretString --output text | jq '.webhook_url' | sed 's/"//g')
+
+# .notification-secret-manager-replace-script: &notification-secret-manager-replace-script
+#   - sed -i "s,ENV_SENDGRID_API_KEY,${SENDGRID_API_KEY},g" backend/manifests/${CI_ENVIRONMENT_NAME}/secret.yaml
+#   - sed -i "s,ENV_SLACK_WEBHOOK_URL,${SLACK_WEBHOOK_URL},g" backend/manifests/${CI_ENVIRONMENT_NAME}/secret.yaml
+
+# .notification-secret-manager-replace-script-ENV_NUM: &notification-secret-manager-replace-script-ENV_NUM
+#   - sed -i "s,ENV_SENDGRID_API_KEY,${SENDGRID_API_KEY},g" backend/manifests/${CI_ENVIRONMENT_NAME}_env/secret.yaml
+#   - sed -i "s,ENV_SLACK_WEBHOOK_URL,${SLACK_WEBHOOK_URL},g" backend/manifests/${CI_ENVIRONMENT_NAME}_env/secret.yaml
+
+###############################################################################################
+########################################### DEV ENV ###########################################
+###############################################################################################
+dev_deploy_eks:
+  script:
+    - *service-db-secret-manager-script
+    - *service-db-secret-manager-replace-script
+    - *database1-secret-manager-script
+    - *database1-secret-manager-replace-script
+    - *database2-secret-manager-script
+    - *database2-secret-manager-replace-script
+    - *database3-secret-manager-script
+    - *database3-secret-manager-replace-script
+    # - *notification-secret-manager-script
+    # - *notification-secret-manager-replace-script
+    - !reference [.common-deployment-lower-env-steps, script]
+    - !reference [.common-deployment-manifest-fetch-script, script]
+    - !reference [.common-deployment-copy-secret-file-script, script]
+    - !reference [.common-deployment-replace-common-values-script, script]
+    - !reference [.common-deployment-helm-upgrade-script, script]
+
+###############################################################################################
+########################################### QA ENV ############################################
+###############################################################################################
+qa_deploy_eks:
+  script:
+    - *service-db-secret-manager-script
+    - *service-db-secret-manager-replace-script
+    - *database1-secret-manager-script
+    - *database1-secret-manager-replace-script
+    - *database2-secret-manager-script
+    - *database2-secret-manager-replace-script
+    - *database3-secret-manager-script
+    - *database3-secret-manager-replace-script
+    # - *notification-secret-manager-script
+    # - *notification-secret-manager-replace-script
+    - !reference [.common-deployment-lower-env-steps, script]
+    - !reference [.common-deployment-manifest-fetch-script, script]
+    - !reference [.common-deployment-copy-secret-file-script, script]
+    - !reference [.common-deployment-replace-common-values-script, script]
+    - !reference [.common-deployment-helm-upgrade-script, script]
+
+###############################################################################################
+########################################### STG ENV ###########################################
+###############################################################################################
+stg_deploy_eks:
+  script:
+    - !reference [.deploy-script-checks-before, script]
+    - *service-db-secret-manager-script
+    - *service-db-secret-manager-replace-script
+    - *database1-secret-manager-script
+    - *database1-secret-manager-replace-script
+    - *database2-secret-manager-script
+    - *database2-secret-manager-replace-script
+    - *database3-secret-manager-script
+    - *database3-secret-manager-replace-script
+    # - *notification-secret-manager-script
+    # - *notification-secret-manager-replace-script
+    - !reference [.common-deployment-stg-prd-env-steps, script]
+    - !reference [.common-deployment-manifest-fetch-script, script]
+    - !reference [.common-deployment-copy-secret-file-script, script]
+    - !reference [.common-deployment-replace-common-values-script, script]
+    - !reference [.common-deployment-helm-upgrade-script, script]
+    - !reference [.deploy-script-checks, script]
+
+###############################################################################################
+########################################### PRD ENV ###########################################
+###############################################################################################
+prd_deploy_eks:
+  script:
+    - !reference [.deploy-script-checks-before, script]
+    - *service-db-secret-manager-script
+    - *service-db-secret-manager-replace-script
+    - *database1-secret-manager-script
+    - *database1-secret-manager-replace-script
+    - *database2-secret-manager-script
+    - *database2-secret-manager-replace-script
+    - *database3-secret-manager-script
+    - *database3-secret-manager-replace-script
+    # - *notification-secret-manager-script
+    # - *notification-secret-manager-replace-script
+    - !reference [.common-deployment-stg-prd-env-steps, script]
+    - !reference [.common-deployment-manifest-fetch-script, script]
+    - !reference [.common-deployment-copy-secret-file-script, script]
+    - !reference [.common-deployment-replace-common-values-script, script]
+    - !reference [.common-deployment-helm-upgrade-script, script]
+    - !reference [.deploy-script-checks, script]
+
+###############################################################################################
+########################################### DEV01-06 ENV ######################################
+###############################################################################################
+dev_env_deploy_eks:
+  script:
+    - !reference [.common-branch-name-steps, script]
+    - *service-db-secret-manager-script
+    - *service-db-secret-manager-replace-script-ENV_NUM
+    - *database1-secret-manager-script
+    - *database1-secret-manager-replace-script-ENV_NUM
+    - *database2-secret-manager-script
+    - *database2-secret-manager-replace-script-ENV_NUM
+    - *database3-secret-manager-script
+    - *database3-secret-manager-replace-script-ENV_NUM
+    # - *notification-secret-manager-script
+    # - *notification-secret-manager-replace-script-ENV_NUM
+    - !reference [.common-deployment-lower-env-steps, script]
+    - !reference [.common-deployment-manifest-fetch-script, script]
+    - !reference [.common-deployment-copy-secret-file-script, script]
+    - !reference [.common-deployment-replace-common-values-script, script]
+    - !reference [.common-deployment-helm-upgrade-script, script]
+
+###############################################################################################
+########################################### QA01-05 ENV ######################################
+###############################################################################################
+qa_env_deploy_eks:
+  script:
+    - !reference [.common-branch-name-steps, script]
+    - *service-db-secret-manager-script
+    - *service-db-secret-manager-replace-script-ENV_NUM
+    - *database1-secret-manager-script
+    - *database1-secret-manager-replace-script-ENV_NUM
+    - *database2-secret-manager-script
+    - *database2-secret-manager-replace-script-ENV_NUM
+    - *database3-secret-manager-script
+    - *database3-secret-manager-replace-script-ENV_NUM
+    # - *notification-secret-manager-script
+    # - *notification-secret-manager-replace-script-ENV_NUM
+    - !reference [.common-deployment-lower-env-steps, script]
+    - !reference [.common-deployment-manifest-fetch-script, script]
+    - !reference [.common-deployment-copy-secret-file-script, script]
+    - !reference [.common-deployment-replace-common-values-script, script]
+    - !reference [.common-deployment-helm-upgrade-script, script]

@@ -1,0 +1,28 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Spring Boot
+*.log
+spring-pid
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Frontend
+node_modules/
+frontend/dist/
+
+# Environment files
+.env
+.env.*
+!.env.example

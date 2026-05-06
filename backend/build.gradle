@@ -1,0 +1,145 @@
+plugins {
+    id 'org.springframework.boot' version '3.3.13'
+    id 'io.spring.dependency-management' version '1.1.6'
+    id 'java'
+    id 'jacoco'
+    id 'checkstyle'
+    id 'org.sonarqube' version '5.0.0.4638'
+    id 'org.flywaydb.flyway' version '6.5.5'
+}
+
+ext {
+    set('springCloudVersion', '2023.0.5')
+    set('lombokVersion', '1.18.34')
+}
+
+group = 'com.example'
+version = '0.0.1-SNAPSHOT'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"
+    }
+}
+
+dependencies {
+    // spring
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-configuration-processor'
+
+    // flyway
+    implementation 'org.flywaydb:flyway-core:9.22.3'
+    implementation 'org.flywaydb:flyway-mysql:9.22.3'
+
+    // lombok
+    implementation "org.projectlombok:lombok:${lombokVersion}"
+    compileOnly "org.projectlombok:lombok:${lombokVersion}"
+    annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
+    testAnnotationProcessor "org.projectlombok:lombok:${lombokVersion}"
+
+    // MariaDB driver — service DB and target databases
+    runtimeOnly 'org.mariadb.jdbc:mariadb-java-client'
+
+    // Excel report generation
+    implementation 'org.apache.poi:poi-ooxml:5.3.0'
+
+    // SendGrid email with attachment
+    implementation 'com.sendgrid:sendgrid-java:4.10.1'
+
+    // Structured logging
+    implementation 'net.logstash.logback:logstash-logback-encoder:7.1.1'
+
+    // Test
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}
+
+flyway {
+    url = 'jdbc:mariadb://127.0.0.1:3318/monitoring_db?createDatabaseIfNotExist=true&useUnicode=yes&characterEncoding=UTF-8&allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC'
+    user = 'root'
+    password = 'password'
+    schemas = ['monitoring_db']
+    table = 'monitoring_flyway_schema_history'
+    locations = ['filesystem:src/main/resources/flyway/common']
+    baselineOnMigrate = true
+    baselineVersion = '0'
+    outOfOrder = true
+    validateOnMigrate = false
+}
+
+test {
+    useJUnitPlatform()
+    finalizedBy 'jacocoTestReport'
+}
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
+
+def jacocoCoverageExclusion = [
+        '**/config/**',
+        '**/constant/**',
+        '**/model/**',
+        '**/props/**',
+        '**/*Application.class',
+        '**/test/java/**'
+]
+
+jacoco {
+    toolVersion = '0.8.11'
+}
+
+jacocoTestReport {
+    reports {
+        xml.required.set(true)
+        csv.required.set(false)
+        html.required.set(true)
+    }
+    afterEvaluate {
+        classDirectories.setFrom(files(classDirectories.files.collect {
+            fileTree(dir: it, exclude: jacocoCoverageExclusion)
+        }))
+    }
+}
+
+checkstyle {
+    toolVersion = '10.25.0'
+    configFile file("config/checkstyle/checkstyle.xml")
+    checkstyleTest.enabled = false
+    reportsDir = file("$project.buildDir/checkstyleReports")
+}
+
+checkstyleMain {
+    source = 'src/main/java'
+}
+
+checkstyleTest {
+    source = 'src/test/java'
+}
+
+sonarqube {
+    properties {
+        property 'sonar.sourceEncoding', 'UTF-8'
+        property 'sonar.exclusions', jacocoCoverageExclusion
+        property 'sonar.coverage.exclusions', jacocoCoverageExclusion
+        property 'sonar.projectKey', "monitoring-dashboard"
+        property 'sonar.projectName', "monitoring-dashboard"
+        property 'sonar.login', System.getenv('SONAR_TOKEN') ?: ''
+        property 'sonar.host.url', System.getenv('SONAR_HOST_URL') ?: 'http://localhost:9000'
+    }
+}
+
+tasks.named('sonarqube').configure {
+    dependsOn test
+}

@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration debug="false">
+    <!-- Console Appender (plain text) -->
+    <appender name="console" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS}->[%thread]-> %-5level-> %logger{36} -> %M[%line] -> %msg%n</pattern>
+        </encoder>
+    </appender>
+    <!-- JSON Console Appender (used for STG/PRD) -->
+    <appender name="stdout" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+            <providers>
+                <timestamp>
+                    <timeZone>America/New_York</timeZone>
+                </timestamp>
+                <pattern>
+                    <pattern>
+                        {
+                        "level": "%-5level",
+                        "class": "%c",
+                        "method": "%M[%line]",
+                        "message": "%message"
+                        }
+                    </pattern>
+                </pattern>
+                <stackTrace>
+                    <throwableConverter class="net.logstash.logback.stacktrace.ShortenedThrowableConverter">
+                        <maxDepthPerThrowable>30</maxDepthPerThrowable>
+                        <maxLength>2048</maxLength>
+                        <shortenedClassNameLength>20</shortenedClassNameLength>
+                        <rootCauseFirst>true</rootCauseFirst>
+                    </throwableConverter>
+                </stackTrace>
+            </providers>
+        </encoder>
+    </appender>
+
+    <springProfile name="!(STG | STG_CFG | PRD | PRD_CFG)">
+        <root level="info">
+            <appender-ref ref="console"/>
+        </root>
+        <logger name="com.lg.microservice" level="info" additivity="false">
+            <appender-ref ref="console"/>
+        </logger>
+    </springProfile>
+
+    <springProfile name="STG | STG_CFG | PRD | PRD_CFG">
+        <root level="info">
+            <appender-ref ref="stdout"/>
+        </root>
+        <logger name="com.lg.microservice" level="info" additivity="false">
+            <appender-ref ref="stdout"/>
+        </logger>
+    </springProfile>
+</configuration>

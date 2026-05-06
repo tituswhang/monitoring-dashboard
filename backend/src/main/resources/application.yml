@@ -1,0 +1,184 @@
+spring:
+  profiles:
+    group:
+      "LOCAL": "LOCALDEV"
+      "DEV": "DEV_CFG"
+      "DEV_NUM": "DEV_CFG,DEV_NUM"
+      "QA": "QA_CFG"
+      "QA_NUM": "QA_CFG,QA_NUM"
+      "STG": "STG_CFG"
+      "PRD": "PRD_CFG"
+    active:
+  application:
+    name: monitoring-dashboard
+  sendgrid:
+    api-key: ${SENDGRID_API_KEY:dummy-key-for-local}
+  datasource:
+    url: jdbc:mariadb://${DB_HOST}:${DB_PORT:3306}/monitoring_db?useUnicode=yes&characterEncoding=UTF-8&allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.mariadb.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: false
+    locations: classpath:flyway/common
+    table: monitoring_flyway_schema_history
+
+server:
+  port: 8080
+  servlet:
+    context-path: /monitoring
+
+springdoc:
+  api-docs:
+    path: '/openapi/v3/docs'
+  openapi:
+    info:
+      title: Monitoring Dashboard APIs
+      description: DB-driven query monitoring with email and Slack alerts
+
+monitoring:
+  database1:
+    host: ${DB1_HOST}
+    port: ${DB1_PORT:3306}
+    database: ${DB1_NAME}
+    username: ${DB1_USER}
+    password: ${DB1_PASSWORD}
+  database2:
+    host: ${DB2_HOST}
+    port: ${DB2_PORT:3306}
+    database: ${DB2_NAME}
+    username: ${DB2_USER}
+    password: ${DB2_PASSWORD}
+  database3:
+    host: ${DB3_HOST}
+    port: ${DB3_PORT:3306}
+    database: ${DB3_NAME}
+    username: ${DB3_USER}
+    password: ${DB3_PASSWORD}
+  database4:
+    host: ${DB4_HOST}
+    port: ${DB4_PORT:3306}
+    database: ${DB4_NAME}
+    username: ${DB4_USER}
+    password: ${DB4_PASSWORD}
+  email:
+    enabled: ${SENDGRID_ENABLED:false}
+    from: ${EMAIL_FROM:donotreply@example.com}
+    from-name: ${EMAIL_FROM_NAME:Monitoring Dashboard}
+  slack:
+    webhook-url: ${SLACK_WEBHOOK_URL:}
+---
+
+spring:
+  config:
+    activate:
+      on-profile: "DEV_CFG"
+  datasource:
+    url: jdbc:mariadb://${DB_HOST}:${DB_PORT:3306}/monitoring_db?useUnicode=yes&characterEncoding=UTF-8&allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+  flyway:
+    enabled: false
+    locations: classpath:flyway/common,classpath:flyway/env_sql/dev
+    out-of-order: true
+
+server:
+  port: 8080
+  servlet:
+    context-path: /monitoring
+
+---
+
+spring:
+  config:
+    activate:
+      on-profile: "DEV_NUM"
+  datasource:
+    url: jdbc:mariadb://${DB_HOST}:${DB_PORT:3306}/monitoring_db_${NUM_PATH}?useUnicode=yes&characterEncoding=UTF-8&allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
+  flyway:
+    schemas: monitoring_db_${NUM_PATH}
+
+server:
+  port: 8080
+  servlet:
+    context-path: /monitoring/${NUM_PATH}
+
+---
+
+spring:
+  config:
+    activate:
+      on-profile: "QA_CFG"
+  datasource:
+    url: jdbc:mariadb://${DB_HOST}:${DB_PORT:3306}/monitoring_db?useUnicode=yes&characterEncoding=UTF-8&allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+  flyway:
+    enabled: false
+    locations: classpath:flyway/common,classpath:flyway/env_sql/qa
+    out-of-order: true
+
+server:
+  port: 8080
+  servlet:
+    context-path: /monitoring
+
+---
+
+spring:
+  config:
+    activate:
+      on-profile: "QA_NUM"
+  datasource:
+    url: jdbc:mariadb://${DB_HOST}:${DB_PORT:3306}/monitoring_db_${NUM_PATH}?useUnicode=yes&characterEncoding=UTF-8&allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
+  flyway:
+    schemas: monitoring_db_${NUM_PATH}
+
+server:
+  port: 8080
+  servlet:
+    context-path: /monitoring/${NUM_PATH}
+
+---
+
+spring:
+  config:
+    activate:
+      on-profile: "STG_CFG"
+  datasource:
+    url: jdbc:mariadb://${DB_HOST}:${DB_PORT:3306}/monitoring_db?useUnicode=yes&characterEncoding=UTF-8&allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+  flyway:
+    enabled: false
+    locations: classpath:flyway/common,classpath:flyway/env_sql/stg
+    out-of-order: false
+
+server:
+  port: 8080
+  servlet:
+    context-path: /monitoring
+
+---
+
+spring:
+  config:
+    activate:
+      on-profile: "PRD_CFG"
+  datasource:
+    url: jdbc:mariadb://${DB_HOST}:${DB_PORT:3306}/monitoring_db?useUnicode=yes&characterEncoding=UTF-8&allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+  flyway:
+    enabled: false
+    locations: classpath:flyway/common,classpath:flyway/env_sql/prd
+    out-of-order: false
+
+server:
+  port: 8080
+  servlet:
+    context-path: /monitoring
