@@ -2,6 +2,8 @@
 
 A full-stack Spring Boot + React application for DB-driven SQL monitoring. It executes SQL queries against target databases on a configurable schedule, persists results, and sends email + Slack alerts with Excel attachments when issues are detected.
 
+**Live demo:** https://monitoring-dashboard-demo.netlify.app/ (frontend only, backed by in-memory mock data)
+
 ## Overview
 
 The service:
@@ -290,7 +292,7 @@ Configure each target database used by your `db_type` values (`DATABASE1`–`DAT
 
 ### Frontend (Netlify)
 
-The frontend is a Vite SPA and can be deployed standalone to Netlify (the API client currently uses in-memory mock data, so no backend is required for a demo deploy).
+The frontend is a Vite SPA and can be deployed standalone to Netlify (the API client currently uses in-memory mock data, so no backend is required for a demo deploy). A live build is hosted at https://monitoring-dashboard-demo.netlify.app/.
 
 Repo-root config files:
 
