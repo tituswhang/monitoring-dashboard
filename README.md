@@ -288,6 +288,30 @@ Configure each target database used by your `db_type` values (`DATABASE1`–`DAT
 
 ## Deployment
 
+### Frontend (Netlify)
+
+The frontend is a Vite SPA and can be deployed standalone to Netlify (the API client currently uses in-memory mock data, so no backend is required for a demo deploy).
+
+Repo-root config files:
+
+- **`netlify.toml`** — sets `base = "frontend"`, build command, and publish dir (`dist`, relative to base)
+- **`.nvmrc`** — pins Node 20 (Vite 7 requires Node 20+)
+
+Steps:
+
+1. Push the repo to GitHub.
+2. In Netlify, **Add new site → Import from Git** and select the repo. Build settings auto-detect from `netlify.toml`.
+3. Deploy.
+
+To deploy from the CLI instead:
+
+```bash
+npm install -g netlify-cli
+netlify deploy --build --prod
+```
+
+To point the frontend at a real backend later, replace the mock implementations in `frontend/src/api/monitoring.ts` with axios calls and set `VITE_API_BASE_URL` in Netlify's environment variables.
+
 ### Docker Container
 
 ```bash

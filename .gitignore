@@ -21,6 +21,9 @@ out/
 # VS Code
 .vscode/
 
+# Claude Code
+.claude/
+
 # Spring Boot
 *.log
 spring-pid

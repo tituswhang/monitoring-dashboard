@@ -1,4 +1,4 @@
-import type { MonitoringQuery, MonitoringResult, MonitoringResultRow, RowStatus, SpringPage } from "../types/monitoring";
+import type { MonitoringQuery, MonitoringResult, RowStatus, SpringPage } from "../types/monitoring";
 import { MOCK_QUERIES, MOCK_RESULTS } from "./mockData";
 
 // In-memory state — mutations are reflected immediately within the session

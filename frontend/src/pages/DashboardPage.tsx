@@ -402,7 +402,7 @@ function QueryCard({
               <Tooltip
                 content={(props) => (
                   <FollowTooltip
-                    {...(props as Parameters<typeof FollowTooltip>[0])}
+                    {...(props as unknown as Parameters<typeof FollowTooltip>[0])}
                     formatLabel={(_, p) => String(p?.[0]?.payload?.date ?? "")}
                     formatValue={(v) => `${v} case${v !== 1 ? "s" : ""}`}
                   />
@@ -2248,7 +2248,7 @@ export default function DashboardPage() {
                       <Tooltip
                         content={(props) => (
                           <FollowTooltip
-                            {...(props as Parameters<typeof FollowTooltip>[0])}
+                            {...(props as unknown as Parameters<typeof FollowTooltip>[0])}
                             formatValue={(v) => `${v} case${v !== 1 ? "s" : ""}`}
                           />
                         )}
@@ -2444,7 +2444,7 @@ export default function DashboardPage() {
                         <Tooltip
                           content={(props) => (
                             <FollowTooltip
-                              {...(props as Parameters<typeof FollowTooltip>[0])}
+                              {...(props as unknown as Parameters<typeof FollowTooltip>[0])}
                               formatValue={(v) => `${v} case${v !== 1 ? "s" : ""}`}
                             />
                           )}
@@ -2454,8 +2454,8 @@ export default function DashboardPage() {
                           dataKey="count"
                           radius={[3, 3, 0, 0]}
                           style={{ cursor: "pointer" }}
-                          onClick={(payload: { result: MonitoringResult }) =>
-                            void handleBarClick(payload.result)
+                          onClick={(payload) =>
+                            void handleBarClick((payload as unknown as { result: MonitoringResult }).result)
                           }
                         >
                           {chartData.map((entry) => {

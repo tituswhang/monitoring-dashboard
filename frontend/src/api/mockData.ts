@@ -218,7 +218,7 @@ const ALL_DAYS = Object.values(D);
 // Anomalies on 5 of 10 weekdays; spike mid-week Apr 28-30
 // ---------------------------------------------------------------------------
 const unfulfilled: MonitoringResult[] = WEEKDAYS.map((date) => {
-  const rowData: Record<string, string[]> = {
+  const rowData: Record<string, string[][]> = {
     [D.APR25]: [
       ["ORD-10421", "alice@example.com", `${date} 06:12:05`, "149.99"],
       ["ORD-10398", "bob@example.com",   `${date} 05:44:22`, "79.00"],
