@@ -74,3 +74,78 @@
       sans-serif;
   }
 }
+
+/* ── DataGrip-style AG Grid theme ─────────────────────────────────────────── */
+.ag-theme-datagrip {
+  --ag-font-family: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas,
+    "DejaVu Sans Mono", monospace;
+  --ag-font-size: 14px;
+  --ag-cell-horizontal-padding: 6px;
+
+  /* Quartz sets this only on .ag-theme-quartz; our custom class must opt in
+     explicitly or every header icon renders as a missing-glyph box. */
+  --ag-icon-font-family: agGridQuartz;
+
+  --ag-background-color: oklch(1 0 0);
+  --ag-foreground-color: oklch(0.145 0 0);
+  --ag-header-background-color: oklch(0.96 0 0);
+  --ag-header-foreground-color: oklch(0.145 0 0);
+  --ag-odd-row-background-color: oklch(0.986 0 0);
+  --ag-row-hover-color: oklch(0.94 0 0);
+  --ag-row-border-color: oklch(0.91 0 0);
+  --ag-border-color: oklch(0.91 0 0);
+  --ag-selected-row-background-color: oklch(0.93 0.02 27.3);
+}
+
+.dark .ag-theme-datagrip {
+  --ag-background-color: oklch(0.185 0 0);
+  --ag-foreground-color: oklch(0.985 0 0);
+  --ag-header-background-color: oklch(0.215 0 0);
+  --ag-header-foreground-color: oklch(0.985 0 0);
+  --ag-odd-row-background-color: oklch(0.168 0 0);
+  --ag-row-hover-color: oklch(0.245 0 0);
+  --ag-row-border-color: oklch(0.265 0 0);
+  --ag-border-color: oklch(0.265 0 0);
+  --ag-selected-row-background-color: oklch(0.26 0.03 27.3);
+}
+
+/* Sharp outer corners */
+.ag-theme-datagrip .ag-root-wrapper {
+  border-radius: 0;
+  border: none;
+}
+
+/* Vertical column separators */
+.ag-theme-datagrip .ag-cell {
+  border-right: 1px solid oklch(0.91 0 0);
+}
+.dark .ag-theme-datagrip .ag-cell {
+  border-right: 1px solid oklch(0.265 0 0);
+}
+
+/* Bold, slightly uppercase-feeling header text */
+.ag-theme-datagrip .ag-header-cell-text {
+  font-weight: 600;
+  letter-spacing: 0.025em;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+/* The pinned-left section reserves a bottom gutter to align with the center
+   body's horizontal scrollbar. Tailwind's global resets let that gutter render
+   as a visible scrollbar under the select/# columns — hide it; horizontal
+   scrolling still works through the center body. */
+.ag-theme-datagrip .ag-horizontal-left-spacer:not(.ag-scroller-corner) {
+  overflow-x: hidden;
+}
+
+/* Neutralise Tailwind's global border-color reset on AG Grid internals */
+.ag-theme-datagrip .ag-header-cell-menu-button,
+.ag-theme-datagrip .ag-sort-indicator-icon,
+.ag-theme-datagrip .ag-sort-indicator-container,
+.ag-theme-datagrip .ag-header-cell-resize,
+.ag-theme-datagrip .ag-icon {
+  border: none;
+  box-shadow: none;
+}
+

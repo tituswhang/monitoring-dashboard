@@ -35,7 +35,10 @@ public class MonitoringSchedulerService {
 
         for (MonitoringQuery item : activeItems) {
             try {
+                warnOnHalfBoundWindow(item);
                 CronTrigger trigger = new CronTrigger(item.getQueryInterval());
+                // execute(item) resolves the window when the task fires, not here — otherwise
+                // every scheduled run would re-use the window current at service startup.
                 taskScheduler.schedule(() -> executionService.execute(item), trigger);
                 log.info("[MSOR] Registered msor_id={} '{}' cron='{}'",
                         item.getMsorId(), item.getTitle(), item.getQueryInterval());
@@ -43,6 +46,30 @@ public class MonitoringSchedulerService {
                 log.error("[MSOR] Failed to schedule msor_id={} '{}': {}",
                         item.getMsorId(), item.getTitle(), ex.getMessage(), ex);
             }
+        }
+    }
+
+    /**
+     * Flags a query that references one window variable but not the other.
+     *
+     * <p>An unset MySQL user variable evaluates to NULL, and {@code col >= NULL} is NULL —
+     * so a half-bound query returns zero rows and the service reports "no problems today".
+     * That is the worst failure a monitor can have, and nothing downstream would notice it,
+     * so it is worth an ERROR at startup where someone will see it.</p>
+     */
+    private void warnOnHalfBoundWindow(MonitoringQuery item) {
+        String sql = item.getSqlQuery();
+        if (sql == null) {
+            return;
+        }
+        boolean hasBegin = sql.contains("@begin_date");
+        boolean hasEnd = sql.contains("@end_date");
+        if (hasBegin != hasEnd) {
+            log.error("[MSOR] msor_id={} '{}' references {} but not {} — it will return zero rows. "
+                            + "Both window variables must be present.",
+                    item.getMsorId(), item.getTitle(),
+                    hasBegin ? "@begin_date" : "@end_date",
+                    hasBegin ? "@end_date" : "@begin_date");
         }
     }
 }

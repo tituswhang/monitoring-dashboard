@@ -11,8 +11,15 @@ spring:
     active:
   application:
     name: monitoring-dashboard
-  sendgrid:
-    api-key: ${SENDGRID_API_KEY:dummy-key-for-local}
+  cloud:
+    aws:
+      region:
+        static: ${AWS_REGION:us-east-1}
+      credentials:
+        access-key: ${AWS_ACCESS_KEY:}
+        secret-key: ${AWS_SECRET_KEY:}
+      sqs:
+        endpoint: ${AWS_SQS_ENDPOINT:}
   datasource:
     url: jdbc:mariadb://${DB_HOST}:${DB_PORT:3306}/monitoring_db?useUnicode=yes&characterEncoding=UTF-8&allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
     username: ${DB_USER}
@@ -20,17 +27,26 @@ spring:
     driver-class-name: org.mariadb.jdbc.Driver
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: none
     open-in-view: false
   flyway:
     enabled: false
     locations: classpath:flyway/common
     table: monitoring_flyway_schema_history
+    baseline-version: 0
 
 server:
   port: 8080
+  forward-headers-strategy: framework
   servlet:
     context-path: /monitoring
+  error:
+    # Spring omits `message` from error bodies by default, which would reduce a rejected
+    # scan range ("beginDate must not precede 2026-07-01") to a bare "Bad Request" the
+    # operator cannot act on. Exception messages are no wider an exposure than the full
+    # stack traces this service already returns in monitoring_results.error_detail, and
+    # both are behind the same authentication.
+    include-message: always
 
 springdoc:
   api-docs:
@@ -41,6 +57,9 @@ springdoc:
       description: DB-driven query monitoring with email and Slack alerts
 
 monitoring:
+  query-execution:
+    timeout-seconds: ${MONITORING_QUERY_TIMEOUT_SECONDS:300}
+    max-rows: ${MONITORING_QUERY_MAX_ROWS:50000}
   database1:
     host: ${DB1_HOST}
     port: ${DB1_PORT:3306}
@@ -66,11 +85,55 @@ monitoring:
     username: ${DB4_USER}
     password: ${DB4_PASSWORD}
   email:
-    enabled: ${SENDGRID_ENABLED:false}
+    enabled: ${MONITORING_EMAIL_ENABLED:false}
     from: ${EMAIL_FROM:donotreply@example.com}
     from-name: ${EMAIL_FROM_NAME:Monitoring Dashboard}
   slack:
     webhook-url: ${SLACK_WEBHOOK_URL:}
+
+communication:
+  events:
+    # Alerts are published as events to a downstream communication service rather than
+    # sent directly, so delivery (email, templating, retries) is that service's concern.
+    queue-url: ${COMMUNICATION_EVENTS_QUEUE_URL:}
+    event-key: ${COMMUNICATION_EVENTS_EVENT_KEY:monitoring.alert}
+
+app:
+  # The link an admin sends an invitee. Defaults to the post-login redirect URI, which is by
+  # definition where a user lands once signed in, so there is nothing extra to configure per env.
+  dashboard-url: ${DASHBOARD_URL:${COGNITO_POST_LOGIN_REDIRECT_URI:http://localhost:5173/}}
+
+auth:
+  # Off by default so a local checkout runs without an identity provider; the deployed
+  # profiles below turn it on. The frontend mirrors this with VITE_AUTH_ENABLED.
+  enabled: ${AUTH_ENABLED:false}
+  # Authorization. Roles live in this app's own tables (app_user_role), keyed on email, so they
+  # can be granted from the dashboard instead of the AWS console.
+  roles:
+    # db | cognito | both. `both` unions the DB roles with the legacy cognito:groups claim, so shipping
+    # the tables changes nothing for anyone; flip to `db` per environment once every current Cognito
+    # admin has an ADMIN row, then delete the cognito branch.
+    source: ${AUTH_ROLE_SOURCE:both}
+    # What a signed-in user with no roles granted falls back to.
+    default-role: ${AUTH_DEFAULT_ROLE:VIEWER}
+    # Used only when auth.enabled=false, so local and demo runs still see the whole app.
+    demo-role: ${AUTH_DEMO_ROLE:ADMIN}
+    # Comma-separated emails that are always ADMIN, whatever the DB says. Bootstraps the first admin
+    # and is the way back in if the last ADMIN row is ever deleted. Populate this in every environment.
+    bootstrap-admins: ${AUTH_BOOTSTRAP_ADMINS:}
+  provider:
+    validation-method: jwk
+    # DEPRECATED — legacy Cognito group whose members are treated as admins (mapped to ROLE_<admin-group>).
+    # Honoured only while auth.roles.source includes `cognito`. Remove once every env is on `db`.
+    admin-group: ${COGNITO_ADMIN_GROUP:admin}
+    cognito:
+      issuer-uri: ${COGNITO_ISSUER_URI:https://cognito-idp.us-east-1.amazonaws.com/us-east-1_placeholder}
+      user-pool-id: ${COGNITO_USER_POOL_ID:}
+      client-id: ${COGNITO_CLIENT_ID:}
+      client-secret: ${COGNITO_CLIENT_SECRET:}
+      domain: ${COGNITO_DOMAIN:}
+      redirect-uri: ${COGNITO_REDIRECT_URI:http://localhost:8080/monitoring/v1/auth/callback}
+      post-login-redirect-uri: ${COGNITO_POST_LOGIN_REDIRECT_URI:http://localhost:5173/}
 ---
 
 spring:
@@ -90,6 +153,9 @@ server:
   port: 8080
   servlet:
     context-path: /monitoring
+
+auth:
+  enabled: ${AUTH_ENABLED:true}
 
 ---
 
@@ -127,6 +193,9 @@ server:
   servlet:
     context-path: /monitoring
 
+auth:
+  enabled: ${AUTH_ENABLED:true}
+
 ---
 
 spring:
@@ -163,6 +232,9 @@ server:
   servlet:
     context-path: /monitoring
 
+auth:
+  enabled: ${AUTH_ENABLED:true}
+
 ---
 
 spring:
@@ -182,3 +254,6 @@ server:
   port: 8080
   servlet:
     context-path: /monitoring
+
+auth:
+  enabled: ${AUTH_ENABLED:true}

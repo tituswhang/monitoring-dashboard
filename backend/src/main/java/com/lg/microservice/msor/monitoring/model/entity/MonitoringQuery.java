@@ -36,6 +36,9 @@ public class MonitoringQuery {
     @Column(name = "db_type", nullable = false)
     private String dbType;
 
+    @Column(name = "category", nullable = false)
+    private String category;
+
     @Column(name = "sql_query", nullable = false, columnDefinition = "MEDIUMTEXT")
     private String sqlQuery;
 
@@ -51,7 +54,7 @@ public class MonitoringQuery {
     @Column(name = "owner_email")
     private String ownerEmail;
 
-    @Column(name = "recipients", nullable = false)
+    @Column(name = "recipients")
     private String recipients;
 
     @Column(name = "active_yn", nullable = false, columnDefinition = "CHAR(1)")
@@ -60,8 +63,28 @@ public class MonitoringQuery {
     @Column(name = "frequent_yn", nullable = false, columnDefinition = "CHAR(1)")
     private String frequentYn;
 
+    @Column(name = "on_hold_yn", nullable = false, columnDefinition = "CHAR(1)")
+    private String onHoldYn;
+
     @Column(name = "color", length = 7)
     private String color;
+
+    /**
+     * Days a scheduled run of this item looks back — the window is
+     * {@code [today - defaultLookbackDays, today]} inclusive.
+     *
+     * <p>Ignored by items still carrying a literal date floor (those whose {@code sqlQuery}
+     * does not mention {@code @begin_date}), and by the widened "past unresolved cases"
+     * scan, which reaches back to the configured floor instead.</p>
+     */
+    @Column(name = "default_lookback_days", nullable = false)
+    private Integer defaultLookbackDays;
+
+    @Column(name = "identity_columns", length = 500)
+    private String identityColumns;
+
+    @Column(name = "volatile_columns", length = 500)
+    private String volatileColumns;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;

@@ -1,20 +1,41 @@
 # Monitoring Dashboard
 
-A full-stack Spring Boot + React application for DB-driven SQL monitoring. It executes SQL queries against target databases on a configurable schedule, persists results, and sends email + Slack alerts with Excel attachments when issues are detected.
+A full-stack Spring Boot + React application for DB-driven SQL monitoring. It executes SQL queries against target databases on a configurable schedule, persists results as trackable *cases*, and publishes alert events when issues are detected.
 
-**Live demo:** https://monitoring-dashboard-demo.netlify.app/ (frontend only, backed by in-memory mock data)
+**Live demo:** https://monitoring-dashboard-demo.netlify.app/ (frontend only, backed by in-memory mock data — sign in with any username and password)
 
 ## Overview
 
 The service:
 
 1. **Reads monitoring jobs** from the `monitoring_queries` database table
-2. **Executes SQL queries** against target databases on a cron schedule
-3. **Persists results** to the `monitoring_results` table for audit/history
-4. **Sends alerts** via email (SendGrid) + Slack when issues are detected
-5. **Skips alerts** if zero rows found or an alert was already sent today
+2. **Executes SQL queries** against target databases on a cron schedule, over a
+   caller-supplied or per-item default date window
+3. **Persists results** to the `monitoring_results` table for audit/history, recording the
+   window each run actually scanned
+4. **Tracks each row as a case** with a stable identity that survives across runs, so status,
+   comments, and an activity timeline follow the case rather than the run
+5. **Publishes alert events** to a downstream communication service (SQS) + Slack
+6. **Skips alerts** if zero rows found, an alert was already sent today, or every matching
+   case is already resolved
 
 All monitoring items and schedules are **database-driven** — no code changes required to add or modify monitoring rules.
+
+## Features
+
+- **Case tracking** — rows are keyed by a stable case identity (increment id → configured
+  identity columns → order id → row hash), so a recurring issue keeps its history, its
+  first-seen date, and its comment thread instead of looking new on every run.
+- **Activity timeline** — an append-only log of comments, status changes, and data drift per
+  case, attributed to the signed-in user.
+- **Team workload KPI** — who triaged which cases in a given month, plus what nobody touched.
+- **Scan date ranges** — run an item over an explicit window, or widen the scan to reach past
+  unresolved cases. Items still carrying a literal date floor hide the control rather than
+  showing it do nothing.
+- **Role-based access** — ADMIN / EDITOR / VIEWER, resolved from the app's own tables (not
+  identity-provider groups) so roles are grantable from the dashboard itself.
+- **On-hold items** — items blocked on an external action stay scheduled and visible but drop
+  out of the dashboard totals, so the daily view only shows what is actionable.
 
 ## Tech Stack
 
@@ -25,8 +46,10 @@ All monitoring items and schedules are **database-driven** — no code changes r
 | **Build** | Gradle | 8.9 |
 | **Frontend** | React + TypeScript | - |
 | **Build Tool (FE)** | Vite | - |
-| **Email** | SendGrid Java SDK | 4.10.1 |
-| **Excel** | Apache POI (poi-ooxml) | 5.3.0 |
+| **Data grid** | AG Grid Community | 35.3.0 |
+| **Auth** | Spring Security + OAuth2 resource server (AWS Cognito) | - |
+| **Alert transport** | AWS SQS (Spring Cloud AWS) | 3.1.0 |
+| **API docs** | springdoc-openapi | 2.6.0 |
 | **Service DB** | MariaDB | via env vars |
 | **Migrations** | Flyway | 9.22.3 |
 | **Quality** | Checkstyle 10.25.0, JaCoCo, SonarQube |
@@ -40,28 +63,37 @@ monitoring-dashboard/
 ├── backend/                                           # Spring Boot application
 │   ├── src/main/
 │   │   ├── java/.../monitoring/
+│   │   │   ├── common/
+│   │   │   │   ├── exception/                             # Typed domain exceptions
+│   │   │   │   ├── security/                              # JWT decode, roles, filter chain
+│   │   │   │   └── utils/                                 # Case-key resolution, drift detection
 │   │   │   ├── config/
 │   │   │   │   ├── SchedulerConfig.java                   # ThreadPoolTaskScheduler (pool=10)
-│   │   │   │   └── SendGridConfig.java                    # SendGrid bean
+│   │   │   │   ├── CognitoClientConfig.java               # Cognito admin SDK client
+│   │   │   │   └── OpenApiConfig.java                     # springdoc customisation
 │   │   │   ├── model/
 │   │   │   │   ├── entity/
 │   │   │   │   │   ├── MonitoringQuery.java               # JPA entity for monitoring_queries
 │   │   │   │   │   ├── MonitoringResult.java              # JPA entity for monitoring_results
-│   │   │   │   │   └── MonitoringResultRow.java           # JPA entity for monitoring_result_rows
+│   │   │   │   │   ├── MonitoringResultRow.java           # JPA entity for monitoring_result_rows
+│   │   │   │   │   ├── MonitoringCaseActivity.java        # JPA entity for the case timeline
+│   │   │   │   │   └── AppUser.java / AppUserRole.java    # Users and role grants
 │   │   │   │   ├── request/                               # API request DTOs
 │   │   │   │   ├── response/                              # API response DTOs
+│   │   │   │   ├── event/                                 # Alert event envelope published to SQS
 │   │   │   │   ├── enums/
-│   │   │   │   │   └── ResultStatus.java                  # SUCCESS / FAIL / SKIPPED
-│   │   │   │   ├── ReportSheet.java                       # Excel report model
-│   │   │   │   └── SheetSpec.java                         # Sheet specification
+│   │   │   │   │   ├── ResultStatus.java                  # SUCCESS / FAIL / SKIPPED
+│   │   │   │   │   ├── CaseKeySource.java                 # Which rule produced a case key
+│   │   │   │   │   └── AppRole.java / AppPermission.java  # Authorization catalog
+│   │   │   │   └── QueryWindow.java                       # The date range a run scans
 │   │   │   ├── props/                                     # DB + email config properties
 │   │   │   ├── repository/                                # JPA repositories
 │   │   │   └── service/
 │   │   │       ├── MonitoringSchedulerService.java        # @PostConstruct: reads DB, registers cron tasks
 │   │   │       ├── MonitoringExecutionService.java        # Orchestrator: query→persist→alert
 │   │   │       ├── TargetDbQueryService.java              # Direct JDBC queries (all target DBs)
-│   │   │       ├── ExcelReportService.java                # Apache POI xlsx generation
-│   │   │       ├── MonitoringEmailService.java            # SendGrid email + attachment
+│   │   │       ├── QueryWindowResolver.java               # Validates and resolves scan ranges
+│   │   │       ├── MonitoringEmailService.java            # Publishes alert events to SQS
 │   │   │       ├── SlackNotificationService.java          # Slack incoming webhook
 │   │   │       └── DwSyncService.java                     # DW sync (frequent items)
 │   │   │
@@ -79,9 +111,15 @@ monitoring-dashboard/
 │
 ├── frontend/                                          # React + Vite dashboard
 │   ├── src/
-│   │   ├── api/monitoring.ts                          # Axios API client
+│   │   ├── api/monitoring.ts                          # API client (mock-backed in this build)
+│   │   ├── api/mockData.ts                            # In-memory fixtures on a rolling date spine
+│   │   ├── auth/auth.ts                               # Session, roles, demo login
 │   │   ├── components/ui/                             # shadcn/ui component library
-│   │   ├── pages/DashboardPage.tsx                    # Main dashboard (search, bulk run, CRUD)
+│   │   ├── components/UserAdminModal.tsx              # Invite users, assign roles
+│   │   ├── lib/xlsx.ts                                # Client-side Excel export
+│   │   ├── pages/DashboardPage.tsx                    # Main dashboard, KPI, case timeline
+│   │   ├── pages/LoginPage.tsx                        # Cognito sign-in
+│   │   ├── pages/DemoLoginPage.tsx                    # Local demo sign-in
 │   │   ├── types/monitoring.ts                        # TypeScript types
 │   │   └── App.tsx
 │   └── package.json
@@ -107,19 +145,31 @@ Raw JDBC connections are opened per job execution and closed via try-with-resour
 Key tables in the service database:
 
 - **`monitoring_queries`** — Job definitions
-  - `title`, `description`, `db_type`, `sql_query`, `query_interval` (cron)
+  - `title`, `description`, `db_type`, `category`, `sql_query`, `query_interval` (cron)
   - `sheet_name`, `owner_name`, `owner_email`, `recipients`
-  - `active_yn`, `frequent_yn`, `color` (dashboard display color)
+  - `active_yn`, `frequent_yn`, `on_hold_yn`, `color` (dashboard display color)
+  - `default_lookback_days` — how far back a scheduled run scans
+  - `identity_columns`, `volatile_columns` — case-identity and drift configuration
   - `created_at`, `updated_at`
 
 - **`monitoring_results`** — Execution history
-  - `run_at`, `run_date`, `result_count`, `result_status`
+  - `run_at`, `run_date`, `result_count`, `suppressed_count`, `result_status`
+  - `begin_date`, `end_date`, `past_unresolved_yn` — the window this run actually scanned
   - `execution_ms`, `triggered_alert_yn`, `dw_synced_yn`
   - `error_message`, `error_detail` (full stack trace for FAIL)
 
 - **`monitoring_result_rows`** — Per-row data from query results
   - `row_index`, `row_data` (JSON)
   - `row_status` (OPEN/IN_PROGRESS/DONE), `row_comment`
+  - `case_key`, `case_key_source` — stable case identity and which rule produced it
+
+- **`monitoring_case_activity`** — Append-only timeline per `(msor_id, case_key)`
+  - `entry_type` (COMMENT / STATUS_CHANGE / DATA_CHANGE), `author_name`, `author_email`
+  - `comment_text`, `field_name`, `old_value`, `new_value`, `created_at`
+
+- **`app_user`, `app_user_role`** — Application users and their role grants. Authorization
+  only; credentials stay with the identity provider. Keyed on lower-cased email rather than
+  the provider's subject id, so a role can be granted before the person first signs in.
 
 - **`item_history`** — Audit log of changes to monitoring_queries
 
@@ -136,13 +186,13 @@ Key tables in the service database:
 ```
 MonitoringSchedulerService (cron fires)
   → MonitoringExecutionService.execute(item)
+      ├── Resolve the scan window (caller's range, or the item's default lookback)
       ├── Resolve JDBC URL by db_type
       ├── TargetDbQueryService.query(jdbcUrl, sql) — direct JDBC, 3-attempt retry
       │     └── On failure: persist FAIL result with error_message + error_detail
       ├── Persist MonitoringResult → monitoring_results (rows → monitoring_result_rows)
       ├── IF result_count > 0 AND not already alerted today:
-      │     ├── ExcelReportService.generate() → xlsx bytes
-      │     ├── MonitoringEmailService.sendReport() → SendGrid
+      │     ├── MonitoringEmailService.publish() → SQS alert event
       │     └── SlackNotificationService.sendAlert() → webhook
       └── IF frequent_yn = 'Y':
             └── DwSyncService.sync() → set dw_synced_yn = 'Y'
@@ -161,9 +211,19 @@ MonitoringSchedulerService (cron fires)
 | **GET** | `/v1/monitoring-queries/{id}` | Get one query by ID |
 | **POST** | `/v1/monitoring-queries/{id}/update` | Update query config fields |
 | **DELETE** | `/v1/monitoring-queries/{id}` | Delete query and all its results |
-| **POST** | `/v1/monitoring-queries/{id}/run` | Trigger async execution (returns 202) |
+| **POST** | `/v1/monitoring-queries/{id}/run` | Trigger async execution (returns 202). Optional `?beginDate=&endDate=&includePastUnresolved=` scan window |
+| **POST** | `/v1/monitoring-queries/{id}/on-hold` | Set the on-hold flag (`?value=Y\|N`) |
 | **GET** | `/v1/monitoring-results` | Paginated results (`?resultId=&id=&date=&page=&size=`) |
+| **GET** | `/v1/monitoring-result-rows` | All cases, filterable by `dbType`, `rowStatus`, `msorId`, `fromDate`, `toDate` |
 | **PATCH** | `/v1/monitoring-result-rows/{rowId}` | Update row status (OPEN/IN_PROGRESS/DONE) and comment |
+| **GET** | `/v1/monitoring-cases/{id}/{caseKey}/activity` | Activity timeline for one case |
+| **POST** | `/v1/monitoring-cases/{id}/{caseKey}/comments` | Add a comment to a case |
+| **GET** | `/v1/kpi/case-workload` | Per-person case workload for a month (`?month=yyyy-MM`) |
+| **GET** | `/v1/auth/me` | The caller's identity, roles, and permissions |
+| **GET** | `/v1/admin/users` | List application users (ADMIN) |
+| **POST** | `/v1/admin/users/invite` | Invite a user and assign roles (ADMIN) |
+| **PUT** | `/v1/admin/users/{email}/roles` | Replace a user's role set (ADMIN) |
+| **DELETE** | `/v1/admin/users/{email}` | Deactivate a user (ADMIN) |
 
 ### OpenAPI / Swagger
 ```
@@ -282,11 +342,40 @@ Configure each target database used by your `db_type` values (`DATABASE1`–`DAT
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `SENDGRID_API_KEY` | SendGrid API key | (required for non-LOCAL) |
-| `SENDGRID_ENABLED` | Enable/disable email | `false` (LOCAL) |
+| `MONITORING_EMAIL_ENABLED` | Enable/disable alert publishing | `false` (LOCAL) |
 | `EMAIL_FROM` | Sender email address | `donotreply@example.com` |
 | `EMAIL_FROM_NAME` | Sender display name | `Monitoring Dashboard` |
 | `SLACK_WEBHOOK_URL` | Slack incoming webhook URL | (optional) |
+| `COMMUNICATION_EVENTS_QUEUE_URL` | SQS queue the alert events are published to | (empty) |
+| `COMMUNICATION_EVENTS_EVENT_KEY` | Event key on the published envelope | `monitoring.alert` |
+| `AWS_REGION` / `AWS_ACCESS_KEY` / `AWS_SECRET_KEY` | SQS credentials | `us-east-1` / empty |
+
+### Authentication & Authorization
+
+Auth is **off by default** so a fresh checkout runs without an identity provider; the deployed
+profiles turn it on. The frontend mirrors this with `VITE_AUTH_ENABLED` — when it is not
+`"true"` the SPA shows a local demo login and resolves the current user client-side, which is
+how the hosted demo runs with no backend at all.
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `AUTH_ENABLED` | Enforce authentication | `false` (base), `true` (deployed profiles) |
+| `AUTH_ROLE_SOURCE` | `db`, `cognito`, or `both` | `both` |
+| `AUTH_DEFAULT_ROLE` | Role for a signed-in user with no grants | `VIEWER` |
+| `AUTH_DEMO_ROLE` | Role handed out when `AUTH_ENABLED=false` | `ADMIN` |
+| `AUTH_BOOTSTRAP_ADMINS` | Comma-separated emails that are always ADMIN | (empty) |
+| `COGNITO_ISSUER_URI` | Cognito user-pool issuer | placeholder |
+| `COGNITO_USER_POOL_ID` / `COGNITO_CLIENT_ID` / `COGNITO_CLIENT_SECRET` / `COGNITO_DOMAIN` | Cognito app client | (empty) |
+| `COGNITO_REDIRECT_URI` | OAuth callback | `http://localhost:8080/monitoring/v1/auth/callback` |
+| `COGNITO_POST_LOGIN_REDIRECT_URI` | Where a signed-in user lands | `http://localhost:5173/` |
+| `DASHBOARD_URL` | Link sent to invitees | falls back to the post-login redirect |
+
+### Frontend
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `VITE_AUTH_ENABLED` | `"true"` restores the real Cognito flow; anything else is demo login | unset (demo) |
+| `VITE_SHOP_ADMIN_ORDER_URL` | Base URL for deep-linking an order into a shop admin. When unset, order numbers render as plain text | unset |
 
 ## Deployment
 
@@ -312,7 +401,10 @@ npm install -g netlify-cli
 netlify deploy --build --prod
 ```
 
-To point the frontend at a real backend later, replace the mock implementations in `frontend/src/api/monitoring.ts` with axios calls and set `VITE_API_BASE_URL` in Netlify's environment variables.
+The mock layer is confined to `frontend/src/api/monitoring.ts`, whose exported signatures match
+the real HTTP client one-for-one — pointing the SPA at a live service means replacing that one
+module's bodies with `fetch` calls against `/v1`, and setting `VITE_AUTH_ENABLED=true` so the
+Cognito sign-in flow replaces the demo login. Nothing else in the app knows the difference.
 
 ### Docker Container
 
@@ -330,7 +422,7 @@ docker run -d \
   -e DB1_NAME=mydb1 \
   -e DB1_USER=app \
   -e DB1_PASSWORD=secret \
-  -e SENDGRID_API_KEY=sg_... \
+  -e COMMUNICATION_EVENTS_QUEUE_URL=https://sqs.us-east-1.amazonaws.com/... \
   -p 8080:8080 \
   --name monitoring-dashboard \
   monitoring-dashboard:latest
@@ -428,7 +520,7 @@ cd backend
 - Verify cron expression in `query_interval` (Spring 6-field format: `s m h d M DOW`)
 
 **No emails?**
-- Verify `SENDGRID_API_KEY` is set and `SENDGRID_ENABLED=true`
+- Verify `COMMUNICATION_EVENTS_QUEUE_URL` is set and `MONITORING_EMAIL_ENABLED=true`
 - Verify `recipients` field in `monitoring_queries`
 
 **Slack not posting?**

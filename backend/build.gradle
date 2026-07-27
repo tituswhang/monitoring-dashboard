@@ -28,6 +28,12 @@ repositories {
 
 dependencyManagement {
     imports {
+        // Import order matters: io.spring.dependency-management lets a later BOM
+        // override an earlier one. The AWS BOM (3.1.0) manages spring-cloud-commons/
+        // context at the 2023.0.0 line (4.1.0), whose compatibility verifier rejects
+        // Spring Boot 3.3.x. Importing spring-cloud-dependencies LAST makes the
+        // 2023.0.5 versions (spring-cloud-context 4.1.4, which accepts 3.3.x) win.
+        mavenBom "io.awspring.cloud:spring-cloud-aws-dependencies:3.1.0"
         mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"
     }
 }
@@ -38,6 +44,12 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-configuration-processor'
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+    // OpenAPI / Swagger UI — serves the springdoc.* config in application.yml
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0'
 
     // flyway
     implementation 'org.flywaydb:flyway-core:9.22.3'
@@ -52,11 +64,11 @@ dependencies {
     // MariaDB driver — service DB and target databases
     runtimeOnly 'org.mariadb.jdbc:mariadb-java-client'
 
-    // Excel report generation
-    implementation 'org.apache.poi:poi-ooxml:5.3.0'
+    // AWS SQS — publish monitoring alert events to a downstream communication service
+    implementation 'io.awspring.cloud:spring-cloud-aws-starter-sqs:3.1.0'
 
-    // SendGrid email with attachment
-    implementation 'com.sendgrid:sendgrid-java:4.10.1'
+    // AWS Cognito — invite users into the user pool (admin API)
+    implementation 'software.amazon.awssdk:cognitoidentityprovider'
 
     // Structured logging
     implementation 'net.logstash.logback:logstash-logback-encoder:7.1.1'

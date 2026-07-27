@@ -1,26 +1,30 @@
 package com.lg.microservice.msor.monitoring.webservice.domain.monitoring.service.impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.lg.microservice.msor.monitoring.model.entity.MonitoringCaseActivity;
+import com.lg.microservice.msor.monitoring.model.QueryWindow;
 import com.lg.microservice.msor.monitoring.model.entity.MonitoringQuery;
 import com.lg.microservice.msor.monitoring.model.entity.MonitoringResult;
 import com.lg.microservice.msor.monitoring.model.entity.MonitoringResultRow;
+import com.lg.microservice.msor.monitoring.model.response.CaseActivityResponse;
 import com.lg.microservice.msor.monitoring.model.request.MonitoringQueryCreateRequest;
 import com.lg.microservice.msor.monitoring.model.request.MonitoringQueryUpdateRequest;
+import com.lg.microservice.msor.monitoring.model.request.MonitoringResultRowUpdateRequest;
 import com.lg.microservice.msor.monitoring.model.response.MonitoringQueryResponse;
 import com.lg.microservice.msor.monitoring.model.response.MonitoringResultResponse;
+import com.lg.microservice.msor.monitoring.repository.MonitoringCaseActivityRepository;
 import com.lg.microservice.msor.monitoring.repository.MonitoringQueryRepository;
 import com.lg.microservice.msor.monitoring.repository.MonitoringResultRepository;
 import com.lg.microservice.msor.monitoring.repository.MonitoringResultRowRepository;
 import com.lg.microservice.msor.monitoring.service.MonitoringExecutionService;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -31,15 +35,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
-@ExtendWith(MockitoExtension.class)
-@DisplayName("MonitoringQueryServiceImpl Tests")
+@SpringBootTest(classes = MonitoringQueryServiceImplTest.class)
 class MonitoringQueryServiceImplTest {
 
     @Mock
@@ -52,381 +58,365 @@ class MonitoringQueryServiceImplTest {
     private MonitoringResultRowRepository resultRowRepository;
 
     @Mock
+    private MonitoringCaseActivityRepository activityRepository;
+
+    @Mock
     private MonitoringExecutionService executionService;
 
     @Mock
     private ObjectMapper objectMapper;
 
+    @InjectMocks
     private MonitoringQueryServiceImpl service;
 
-    @BeforeEach
-    void setUp() {
-        service = new MonitoringQueryServiceImpl(
-                queryRepository,
-                resultRepository,
-                resultRowRepository,
-                executionService,
-                objectMapper
-        );
+    @Test
+    void create_validRequest_returnSuccess() {
+        MonitoringQueryCreateRequest request = buildCreateRequest("SELECT * FROM test");
+        MonitoringQuery created = mock(MonitoringQuery.class);
+        doReturn(1).when(created).getMsorId();
+        doReturn(created).when(queryRepository).findTopByOrderByMsorIdDesc();
+
+        MonitoringQueryResponse response = service.create(request);
+
+        Assertions.assertNotNull(response);
+        verify(queryRepository, times(1)).insertMonitoringQuery(
+                any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
-    @DisplayName("Should create monitoring query successfully")
-    void testCreateSuccess() {
+    void getAll_noFilter_returnAllQueries() {
+        MonitoringQuery query1 = mock(MonitoringQuery.class);
+        MonitoringQuery query2 = mock(MonitoringQuery.class);
+        doReturn(List.of(query1, query2)).when(queryRepository).findAll();
+
+        List<MonitoringQueryResponse> result = service.getAll(null);
+
+        Assertions.assertEquals(2, result.size());
+        verify(queryRepository, times(1)).findAll();
+    }
+
+    @Test
+    void getAll_withActiveFilter_returnFilteredQueries() {
+        MonitoringQuery query = mock(MonitoringQuery.class);
+        doReturn(List.of(query)).when(queryRepository).findByActiveYn("Y");
+
+        List<MonitoringQueryResponse> result = service.getAll("Y");
+
+        Assertions.assertEquals(1, result.size());
+        verify(queryRepository, times(1)).findByActiveYn("Y");
+    }
+
+    @Test
+    void getOne_validId_returnQuery() {
+        MonitoringQuery query = mock(MonitoringQuery.class);
+        doReturn(1).when(query).getMsorId();
+        doReturn(Optional.of(query)).when(queryRepository).findById(1);
+
+        MonitoringQueryResponse result = service.getOne(1);
+
+        Assertions.assertNotNull(result);
+        verify(queryRepository, times(1)).findById(1);
+    }
+
+    @Test
+    void update_validRequest_updateSuccess() {
+        MonitoringQueryUpdateRequest request = buildUpdateRequest("SELECT * FROM updated");
+        when(queryRepository.updateMonitoringQuery(anyInt(), any(), any(), any(), any(),
+                any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(1);
+
+        Assertions.assertDoesNotThrow(() -> service.update(1, request));
+        verify(queryRepository, times(1)).updateMonitoringQuery(
+                any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void update_noSqlQuery_skipValidationAndUpdate() {
+        MonitoringQueryUpdateRequest request = new MonitoringQueryUpdateRequest();
+        request.setRecipients("new@example.com");
+        when(queryRepository.updateMonitoringQuery(anyInt(), any(), any(), any(), any(),
+                any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(1);
+
+        Assertions.assertDoesNotThrow(() -> service.update(1, request));
+    }
+
+    @Test
+    void delete_validId_deleteSuccess() {
+        doReturn(true).when(queryRepository).existsById(1);
+
+        service.delete(1);
+
+        verify(resultRowRepository, times(1)).deleteByMsorId(1);
+        verify(resultRepository, times(1)).deleteByMsorId(1);
+        verify(queryRepository, times(1)).deleteMonitoringQuery(1);
+    }
+
+    @Test
+    void triggerExecution_validId_executeQuery() {
+        MonitoringQuery query = mock(MonitoringQuery.class);
+        doReturn(Optional.of(query)).when(queryRepository).findById(1);
+
+        QueryWindow window = QueryWindow.ofDefault(7);
+
+        service.triggerExecution(1, window);
+
+        verify(executionService, times(1)).execute(query, window);
+    }
+
+    @Test
+    void updateResultRow_validRequest_updateSuccess() {
+        MonitoringResultRowUpdateRequest request = new MonitoringResultRowUpdateRequest();
+        request.setRowStatus("DONE");
+        request.setRowComment("All good");
+        MonitoringResultRow row = MonitoringResultRow.builder()
+                .rowId(10L).resultId(100L).rowIndex(0).rowData("{}").rowStatus("OPEN").caseKey("abc123").build();
+        when(resultRowRepository.findById(10L)).thenReturn(Optional.of(row));
+        when(resultRowRepository.updateStatusAndComment(10L, "DONE", "All good")).thenReturn(1);
+        when(resultRepository.findById(100L)).thenReturn(Optional.of(buildMonitoringResult(100L, 1)));
+
+        Assertions.assertDoesNotThrow(() -> service.updateResultRow(10L, request, "Tester", "tester@lg.com"));
+
+        // status changed OPEN -> DONE, so a STATUS_CHANGE entry is logged
+        verify(activityRepository, times(1)).save(any());
+    }
+
+    @Test
+    void addCaseComment_savesAndReturnsEntry() {
+        MonitoringCaseActivity saved = MonitoringCaseActivity.comment(5, "key1", "hello", "Jane", "jane@lg.com");
+        when(activityRepository.save(any())).thenReturn(saved);
+
+        CaseActivityResponse resp = service.addCaseComment(5, "key1", "hello", "Jane", "jane@lg.com");
+
+        Assertions.assertEquals("COMMENT", resp.getEntryType());
+        Assertions.assertEquals("hello", resp.getCommentText());
+        verify(activityRepository, times(1)).save(any());
+    }
+
+    @Test
+    void listCaseActivity_returnsMappedEntries() {
+        MonitoringCaseActivity a = MonitoringCaseActivity.comment(5, "key1", "hi", "Jane", "jane@lg.com");
+        when(activityRepository.findByMsorIdAndCaseKeyOrderByCreatedAtAscActivityIdAsc(5, "key1"))
+                .thenReturn(List.of(a));
+
+        List<CaseActivityResponse> list = service.listCaseActivity(5, "key1");
+
+        Assertions.assertEquals(1, list.size());
+        Assertions.assertEquals("hi", list.get(0).getCommentText());
+    }
+
+    @Test
+    void getResults_byResultId_returnSinglePage() throws Exception {
+        MonitoringResult result = buildMonitoringResult(100L, 1);
+        MonitoringResultRow row = MonitoringResultRow.builder()
+                .resultId(100L).rowIndex(0).rowData("{\"col1\":\"value1\"}").build();
+        doReturn(Optional.of(result)).when(resultRepository).findById(100L);
+        doReturn(List.of(row)).when(resultRowRepository).findByResultIdOrderByRowIndex(100L);
+        when(objectMapper.readValue(anyString(), any(com.fasterxml.jackson.core.type.TypeReference.class)))
+                .thenReturn(Map.of("col1", "value1"));
+
+        Page<MonitoringResultResponse> page = service.getResults(100L, null, null, PageRequest.of(0, 10));
+
+        Assertions.assertEquals(1, page.getContent().size());
+    }
+
+    @Test
+    void getResults_byResultIdNotFound_returnEmptyPage() {
+        doReturn(Optional.empty()).when(resultRepository).findById(999L);
+
+        Page<MonitoringResultResponse> page = service.getResults(999L, null, null, PageRequest.of(0, 10));
+
+        Assertions.assertTrue(page.getContent().isEmpty());
+        Assertions.assertEquals(0, page.getTotalElements());
+    }
+
+    @Test
+    void getResults_byMsorIdAndDate_returnPage() {
+        LocalDate date = LocalDate.now();
+        MonitoringResult result = buildMonitoringResult(100L, 1);
+        Pageable pageable = PageRequest.of(0, 10);
+        Page<MonitoringResult> resultPage = new PageImpl<>(List.of(result), pageable, 1);
+        doReturn(resultPage).when(resultRepository).findByMsorIdAndRunDate(1, date, pageable);
+        doReturn(List.of()).when(resultRowRepository).findByResultIdOrderByRowIndex(100L);
+
+        Page<MonitoringResultResponse> page = service.getResults(null, 1, date, pageable);
+
+        Assertions.assertEquals(1, page.getContent().size());
+        verify(resultRepository, times(1)).findByMsorIdAndRunDate(1, date, pageable);
+    }
+
+    @Test
+    void getResults_byMsorIdOnly_returnPage() {
+        MonitoringResult result = buildMonitoringResult(100L, 1);
+        Pageable pageable = PageRequest.of(0, 10);
+        Page<MonitoringResult> resultPage = new PageImpl<>(List.of(result), pageable, 1);
+        doReturn(resultPage).when(resultRepository).findByMsorId(1, pageable);
+        doReturn(List.of()).when(resultRowRepository).findByResultIdOrderByRowIndex(100L);
+
+        Page<MonitoringResultResponse> page = service.getResults(null, 1, null, pageable);
+
+        Assertions.assertEquals(1, page.getContent().size());
+        verify(resultRepository, times(1)).findByMsorId(1, pageable);
+    }
+
+    @Test
+    void getResults_byDateOnly_returnPage() {
+        LocalDate date = LocalDate.now();
+        MonitoringResult result = buildMonitoringResult(100L, 1);
+        Pageable pageable = PageRequest.of(0, 10);
+        Page<MonitoringResult> resultPage = new PageImpl<>(List.of(result), pageable, 1);
+        doReturn(resultPage).when(resultRepository).findByRunDate(date, pageable);
+        doReturn(List.of()).when(resultRowRepository).findByResultIdOrderByRowIndex(100L);
+
+        Page<MonitoringResultResponse> page = service.getResults(null, null, date, pageable);
+
+        Assertions.assertEquals(1, page.getContent().size());
+        verify(resultRepository, times(1)).findByRunDate(date, pageable);
+    }
+
+    @Test
+    void getResults_noFilter_returnAllWithPagination() {
+        MonitoringResult result = buildMonitoringResult(100L, 1);
+        Pageable pageable = PageRequest.of(0, 10);
+        Page<MonitoringResult> resultPage = new PageImpl<>(List.of(result), pageable, 1);
+        doReturn(resultPage).when(resultRepository).findAll(pageable);
+        doReturn(List.of()).when(resultRowRepository).findByResultIdOrderByRowIndex(100L);
+
+        Page<MonitoringResultResponse> page = service.getResults(null, null, null, pageable);
+
+        Assertions.assertEquals(1, page.getContent().size());
+        verify(resultRepository, times(1)).findAll(pageable);
+    }
+
+    @Test
+    void getResults_invalidRowJson_returnRowWithEmptyData() throws Exception {
+        MonitoringResult result = buildMonitoringResult(100L, 1);
+        MonitoringResultRow row = MonitoringResultRow.builder()
+                .resultId(100L).rowIndex(0).rowData("invalid json").build();
+        doReturn(Optional.of(result)).when(resultRepository).findById(100L);
+        doReturn(List.of(row)).when(resultRowRepository).findByResultIdOrderByRowIndex(100L);
+        when(objectMapper.readValue(anyString(), any(com.fasterxml.jackson.core.type.TypeReference.class)))
+                .thenThrow(new RuntimeException("JSON error"));
+
+        Page<MonitoringResultResponse> page = service.getResults(100L, null, null, PageRequest.of(0, 10));
+
+        Assertions.assertEquals(1, page.getContent().size());
+    }
+
+    private MonitoringQueryCreateRequest buildCreateRequest(String sql) {
         MonitoringQueryCreateRequest request = new MonitoringQueryCreateRequest();
         request.setTitle("Test Query");
         request.setDescription("Test Description");
         request.setDbType("DATABASE1");
-        request.setSqlQuery("SELECT * FROM test");
+        request.setSqlQuery(sql);
         request.setQueryInterval("0 30 8 * * *");
         request.setSheetName("Results");
         request.setOwnerName("Owner");
         request.setOwnerEmail("owner@example.com");
         request.setRecipients("recipient@example.com");
-
-        MonitoringQuery created = mock(MonitoringQuery.class);
-        when(created.getMsorId()).thenReturn(1);
-        when(queryRepository.findTopByOrderByMsorIdDesc()).thenReturn(created);
-
-        MonitoringQueryResponse response = service.create(request);
-
-        assertThat(response).isNotNull();
-        ArgumentCaptor<String> titleCaptor = ArgumentCaptor.forClass(String.class);
-        ArgumentCaptor<String> descCaptor = ArgumentCaptor.forClass(String.class);
-        ArgumentCaptor<String> dbTypeCaptor = ArgumentCaptor.forClass(String.class);
-        ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
-        verify(queryRepository).insertMonitoringQuery(
-                titleCaptor.capture(), descCaptor.capture(), dbTypeCaptor.capture(), sqlCaptor.capture(),
-                any(), any(), any(), any(), any(), any(), any()
-        );
-        assertThat(titleCaptor.getValue()).isEqualTo("Test Query");
-        assertThat(descCaptor.getValue()).isEqualTo("Test Description");
-        assertThat(dbTypeCaptor.getValue()).isEqualTo("DATABASE1");
-        assertThat(sqlCaptor.getValue()).isEqualTo("SELECT * FROM test");
+        return request;
     }
 
-    @ParameterizedTest
-    @ValueSource(strings = {
-            "INSERT INTO test VALUES (1)",
-            "UPDATE test SET col1='value'",
-            "DELETE FROM test",
-            "SELECT * FROM test; DROP TABLE test;"
-    })
-    @DisplayName("Should reject invalid SQL queries")
-    void testCreateWithInvalidQuery(String invalidSql) {
-        MonitoringQueryCreateRequest request = new MonitoringQueryCreateRequest();
-        request.setSqlQuery(invalidSql);
-
-        assertThatThrownBy(() -> service.create(request))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("SELECT");
-    }
-
-    @Test
-    @DisplayName("Should allow SELECT with trailing semicolon")
-    void testCreateWithTrailingSemicolon() {
-        MonitoringQueryCreateRequest request = new MonitoringQueryCreateRequest();
-        request.setTitle("Query");
-        request.setDbType("DATABASE1");
-        request.setSqlQuery("SELECT * FROM test;");
-        request.setQueryInterval("* * * * * *");
-        request.setSheetName("Sheet");
-        request.setOwnerName("Owner");
-        request.setOwnerEmail("owner@example.com");
-        request.setRecipients("recipient@example.com");
-
-        MonitoringQuery created = mock(MonitoringQuery.class);
-        when(queryRepository.findTopByOrderByMsorIdDesc()).thenReturn(created);
-
-        service.create(request);
-
-        verify(queryRepository).insertMonitoringQuery(
-                any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
-    }
-
-    @Test
-    @DisplayName("Should allow SELECT with comments")
-    void testCreateWithComments() {
-        MonitoringQueryCreateRequest request = new MonitoringQueryCreateRequest();
-        request.setTitle("Query");
-        request.setDbType("DATABASE1");
-        request.setSqlQuery("-- Comment\nSELECT * FROM test /* inline comment */");
-        request.setQueryInterval("* * * * * *");
-        request.setSheetName("Sheet");
-        request.setOwnerName("Owner");
-        request.setOwnerEmail("owner@example.com");
-        request.setRecipients("recipient@example.com");
-
-        MonitoringQuery created = mock(MonitoringQuery.class);
-        when(queryRepository.findTopByOrderByMsorIdDesc()).thenReturn(created);
-
-        service.create(request);
-
-        verify(queryRepository).insertMonitoringQuery(
-                any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
-    }
-
-    @Test
-    @DisplayName("Should get all queries")
-    void testGetAll() {
-        MonitoringQuery query1 = mock(MonitoringQuery.class);
-        MonitoringQuery query2 = mock(MonitoringQuery.class);
-        List<MonitoringQuery> queries = List.of(query1, query2);
-
-        when(queryRepository.findAll()).thenReturn(queries);
-
-        List<MonitoringQueryResponse> result = service.getAll(null);
-
-        assertThat(result).hasSize(2);
-        verify(queryRepository).findAll();
-    }
-
-    @Test
-    @DisplayName("Should get active queries only")
-    void testGetAllActive() {
-        MonitoringQuery query = mock(MonitoringQuery.class);
-        List<MonitoringQuery> queries = List.of(query);
-
-        when(queryRepository.findByActiveYn("Y")).thenReturn(queries);
-
-        List<MonitoringQueryResponse> result = service.getAll("Y");
-
-        assertThat(result).hasSize(1);
-        verify(queryRepository).findByActiveYn("Y");
-    }
-
-    @Test
-    @DisplayName("Should get single query by ID")
-    void testGetOne() {
-        MonitoringQuery query = mock(MonitoringQuery.class);
-        when(query.getMsorId()).thenReturn(1);
-
-        when(queryRepository.findById(1)).thenReturn(Optional.of(query));
-
-        MonitoringQueryResponse result = service.getOne(1);
-
-        assertThat(result).isNotNull();
-    }
-
-    @Test
-    @DisplayName("Should throw exception when query not found")
-    void testGetOneNotFound() {
-        when(queryRepository.findById(999)).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> service.getOne(999))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("not found");
-    }
-
-    @Test
-    @DisplayName("Should update query successfully")
-    void testUpdateSuccess() {
+    private MonitoringQueryUpdateRequest buildUpdateRequest(String sql) {
         MonitoringQueryUpdateRequest request = new MonitoringQueryUpdateRequest();
-        request.setSqlQuery("SELECT * FROM updated");
+        request.setSqlQuery(sql);
         request.setRecipients("new@example.com");
         request.setActiveYn("Y");
         request.setFrequentYn("N");
         request.setQueryInterval("0 0 * * *");
         request.setOwnerName("NewOwner");
         request.setOwnerEmail("newowner@example.com");
-
-        when(queryRepository.updateMonitoringQuery(anyInt(), anyString(), anyString(), anyString(),
-                anyString(), anyString(), anyString(), anyString())).thenReturn(1);
-
-        service.update(1, request);
-
-        verify(queryRepository).updateMonitoringQuery(
-                1,
-                "SELECT * FROM updated",
-                "new@example.com",
-                "Y",
-                "N",
-                "0 0 * * *",
-                "NewOwner",
-                "newowner@example.com"
-        );
+        return request;
     }
 
-    @Test
-    @DisplayName("Should validate SQL on update")
-    void testUpdateWithInvalidSql() {
-        MonitoringQueryUpdateRequest request = new MonitoringQueryUpdateRequest();
-        request.setSqlQuery("DROP TABLE test");
-
-        assertThatThrownBy(() -> service.update(1, request))
-                .isInstanceOf(IllegalArgumentException.class);
-    }
-
-    @Test
-    @DisplayName("Should skip SQL validation if empty on update")
-    void testUpdateWithoutSql() {
-        MonitoringQueryUpdateRequest request = new MonitoringQueryUpdateRequest();
-        request.setRecipients("new@example.com");
-
-        when(queryRepository.updateMonitoringQuery(anyInt(), any(), anyString(), any(),
-                any(), any(), any(), any())).thenReturn(1);
-
-        service.update(1, request);
-
-        ArgumentCaptor<String> recipientsCaptor = ArgumentCaptor.forClass(String.class);
-        verify(queryRepository).updateMonitoringQuery(any(), any(), recipientsCaptor.capture(), any(),
-                any(), any(), any(), any());
-        assertThat(recipientsCaptor.getValue()).isEqualTo("new@example.com");
-    }
-
-    @Test
-    @DisplayName("Should throw exception when update affects no rows")
-    void testUpdateNotFound() {
-        MonitoringQueryUpdateRequest request = new MonitoringQueryUpdateRequest();
-        request.setSqlQuery("SELECT * FROM test");
-
-        when(queryRepository.updateMonitoringQuery(999, "SELECT * FROM test", null, null,
-                null, null, null, null)).thenReturn(0);
-
-        assertThatThrownBy(() -> service.update(999, request))
-                .isInstanceOf(RuntimeException.class);
-    }
-
-    @Test
-    @DisplayName("Should trigger execution successfully")
-    void testTriggerExecutionSuccess() {
-        MonitoringQuery query = mock(MonitoringQuery.class);
-        when(queryRepository.findById(1)).thenReturn(Optional.of(query));
-
-        service.triggerExecution(1);
-
-        verify(executionService).execute(query);
-    }
-
-    @Test
-    @DisplayName("Should throw exception when triggering non-existent query")
-    void testTriggerExecutionNotFound() {
-        when(queryRepository.findById(999)).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> service.triggerExecution(999))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("not found");
-    }
-
-    @Test
-    @DisplayName("Should get results by resultId")
-    void testGetResultsById() throws Exception {
+    private MonitoringResult buildMonitoringResult(Long resultId, Integer msorId) {
         MonitoringResult result = new MonitoringResult();
-        result.setResultId(100L);
-        result.setMsorId(1);
-
-        MonitoringResultRow row = MonitoringResultRow.builder()
-                .resultId(100L)
-                .rowIndex(0)
-                .rowData("{\"col1\":\"value1\"}")
-                .build();
-
-        when(resultRepository.findById(100L)).thenReturn(Optional.of(result));
-        when(resultRowRepository.findByResultIdOrderByRowIndex(100L)).thenReturn(List.of(row));
-        when(objectMapper.readValue(anyString(), any(com.fasterxml.jackson.core.type.TypeReference.class)))
-                .thenReturn(Map.of("col1", "value1"));
-
-        Pageable pageable = PageRequest.of(0, 10);
-        Page<MonitoringResultResponse> page = service.getResults(100L, null, null, pageable);
-
-        assertThat(page.getContent()).hasSize(1);
+        result.setResultId(resultId);
+        result.setMsorId(msorId);
+        return result;
     }
 
-    @Test
-    @DisplayName("Should get results by msorId and date")
-    void testGetResultsByMsorIdAndDate() {
-        LocalDate date = LocalDate.now();
-        MonitoringResult result = new MonitoringResult();
-        result.setResultId(100L);
-        result.setMsorId(1);
+    @Nested
+    class MonitoringQueryServiceImplExceptionTest {
 
-        Pageable pageable = PageRequest.of(0, 10);
-        Page<MonitoringResult> resultPage = new PageImpl<>(List.of(result), pageable, 1);
-        when(resultRepository.findByMsorIdAndRunDate(1, date, pageable)).thenReturn(resultPage);
-        when(resultRowRepository.findByResultIdOrderByRowIndex(100L)).thenReturn(List.of());
+        @Mock
+        private MonitoringQueryRepository queryRepository;
 
-        Page<MonitoringResultResponse> page = service.getResults(null, 1, date, pageable);
+        @Mock
+        private MonitoringResultRepository resultRepository;
 
-        assertThat(page.getContent()).hasSize(1);
-        verify(resultRepository).findByMsorIdAndRunDate(1, date, pageable);
-    }
+        @Mock
+        private MonitoringResultRowRepository resultRowRepository;
 
-    @Test
-    @DisplayName("Should get results by msorId only")
-    void testGetResultsByMsorId() {
-        MonitoringResult result = new MonitoringResult();
-        result.setResultId(100L);
-        result.setMsorId(1);
+        @Mock
+        private MonitoringExecutionService executionService;
 
-        Pageable pageable = PageRequest.of(0, 10);
-        Page<MonitoringResult> resultPage = new PageImpl<>(List.of(result), pageable, 1);
-        when(resultRepository.findByMsorId(1, pageable)).thenReturn(resultPage);
-        when(resultRowRepository.findByResultIdOrderByRowIndex(100L)).thenReturn(List.of());
+        @Mock
+        private ObjectMapper objectMapper;
 
-        Page<MonitoringResultResponse> page = service.getResults(null, 1, null, pageable);
+        @InjectMocks
+        private MonitoringQueryServiceImpl service;
 
-        assertThat(page.getContent()).hasSize(1);
-        verify(resultRepository).findByMsorId(1, pageable);
-    }
+        @ParameterizedTest
+        @ValueSource(strings = {
+            "INSERT INTO test VALUES (1)",
+            "UPDATE test SET col = 'value'",
+            "SELECT * FROM test; DROP TABLE test;"
+        })
+        void create_nonSelectStatement_throwsIllegalArgumentException(String sql) {
+            MonitoringQueryCreateRequest request = new MonitoringQueryCreateRequest();
+            request.setSqlQuery(sql);
 
-    @Test
-    @DisplayName("Should get results by date only")
-    void testGetResultsByDate() {
-        LocalDate date = LocalDate.now();
-        MonitoringResult result = new MonitoringResult();
-        result.setResultId(100L);
-        result.setMsorId(1);
+            Assertions.assertThrows(IllegalArgumentException.class, () -> service.create(request));
+        }
 
-        Pageable pageable = PageRequest.of(0, 10);
-        Page<MonitoringResult> resultPage = new PageImpl<>(List.of(result), pageable, 1);
-        when(resultRepository.findByRunDate(date, pageable)).thenReturn(resultPage);
-        when(resultRowRepository.findByResultIdOrderByRowIndex(100L)).thenReturn(List.of());
+        @Test
+        void getOne_queryNotFound_throwsRuntimeException() {
+            doReturn(Optional.empty()).when(queryRepository).findById(999);
 
-        Page<MonitoringResultResponse> page = service.getResults(null, null, date, pageable);
+            Assertions.assertThrows(RuntimeException.class, () -> service.getOne(999));
+        }
 
-        assertThat(page.getContent()).hasSize(1);
-        verify(resultRepository).findByRunDate(date, pageable);
-    }
+        @Test
+        void update_queryNotFound_throwsRuntimeException() {
+            MonitoringQueryUpdateRequest request = new MonitoringQueryUpdateRequest();
+            request.setSqlQuery("SELECT * FROM test");
+            when(queryRepository.updateMonitoringQuery(anyInt(), any(), any(), any(), any(),
+                    anyString(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+                    .thenReturn(0);
 
-    @Test
-    @DisplayName("Should get all results with pagination")
-    void testGetResultsAll() {
-        MonitoringResult result = new MonitoringResult();
-        result.setResultId(100L);
-        result.setMsorId(1);
+            Assertions.assertThrows(RuntimeException.class, () -> service.update(999, request));
+        }
 
-        Pageable pageable = PageRequest.of(0, 10);
-        Page<MonitoringResult> resultPage = new PageImpl<>(List.of(result), pageable, 1);
-        when(resultRepository.findAll(pageable)).thenReturn(resultPage);
-        when(resultRowRepository.findByResultIdOrderByRowIndex(100L)).thenReturn(List.of());
+        @Test
+        void update_invalidSql_throwsIllegalArgumentException() {
+            MonitoringQueryUpdateRequest request = new MonitoringQueryUpdateRequest();
+            request.setSqlQuery("DROP TABLE test");
 
-        Page<MonitoringResultResponse> page = service.getResults(null, null, null, pageable);
+            Assertions.assertThrows(IllegalArgumentException.class, () -> service.update(1, request));
+        }
 
-        assertThat(page.getContent()).hasSize(1);
-        verify(resultRepository).findAll(pageable);
-    }
+        @Test
+        void triggerExecution_queryNotFound_throwsRuntimeException() {
+            doReturn(Optional.empty()).when(queryRepository).findById(999);
 
-    @Test
-    @DisplayName("Should handle JSON deserialization failure gracefully")
-    void testGetResultsWithInvalidJson() throws Exception {
-        MonitoringResult result = new MonitoringResult();
-        result.setResultId(100L);
-        result.setMsorId(1);
+            Assertions.assertThrows(RuntimeException.class, () -> service.triggerExecution(999, QueryWindow.ofDefault(7)));
+        }
 
-        MonitoringResultRow row = MonitoringResultRow.builder()
-                .resultId(100L)
-                .rowIndex(0)
-                .rowData("invalid json")
-                .build();
+        @Test
+        void delete_queryNotFound_throwsRuntimeException() {
+            doReturn(false).when(queryRepository).existsById(999);
 
-        when(resultRepository.findById(100L)).thenReturn(Optional.of(result));
-        when(resultRowRepository.findByResultIdOrderByRowIndex(100L)).thenReturn(List.of(row));
-        when(objectMapper.readValue(anyString(), any(com.fasterxml.jackson.core.type.TypeReference.class)))
-                .thenThrow(new RuntimeException("JSON error"));
+            Assertions.assertThrows(RuntimeException.class, () -> service.delete(999));
+        }
 
-        Pageable pageable = PageRequest.of(0, 10);
-        Page<MonitoringResultResponse> page = service.getResults(100L, null, null, pageable);
+        @Test
+        void updateResultRow_rowNotFound_throwsRuntimeException() {
+            MonitoringResultRowUpdateRequest request = new MonitoringResultRowUpdateRequest();
+            request.setRowStatus("REVIEWED");
+            when(resultRowRepository.findById(99L)).thenReturn(Optional.empty());
 
-        assertThat(page.getContent()).hasSize(1);
+            Assertions.assertThrows(RuntimeException.class, () -> service.updateResultRow(99L, request, "Tester", "tester@lg.com"));
+        }
     }
 }

@@ -18,17 +18,18 @@ public interface MonitoringQueryRepository extends JpaRepository<MonitoringQuery
     @Modifying
     @Transactional
     @Query(value = "INSERT INTO monitoring_queries "
-                + "(title, description, db_type, sql_query, query_interval, "
-                + "sheet_name, owner_name, owner_email, recipients, active_yn, frequent_yn, color, "
+                + "(title, description, db_type, category, sql_query, query_interval, "
+                + "sheet_name, owner_name, owner_email, recipients, active_yn, frequent_yn, on_hold_yn, color, "
                 + "created_at, updated_at) "
-                + "VALUES (:title, :description, :dbType, :sqlQuery, :queryInterval, "
-                + ":sheetName, :ownerName, :ownerEmail, :recipients, :activeYn, :frequentYn, :color, "
+                + "VALUES (:title, :description, :dbType, :category, :sqlQuery, :queryInterval, "
+                + ":sheetName, :ownerName, :ownerEmail, :recipients, :activeYn, :frequentYn, :onHoldYn, :color, "
                 + "NOW(), NOW())",
             nativeQuery = true)
     void insertMonitoringQuery(
             @Param("title") String title,
             @Param("description") String description,
             @Param("dbType") String dbType,
+            @Param("category") String category,
             @Param("sqlQuery") String sqlQuery,
             @Param("queryInterval") String queryInterval,
             @Param("sheetName") String sheetName,
@@ -37,6 +38,7 @@ public interface MonitoringQueryRepository extends JpaRepository<MonitoringQuery
             @Param("recipients") String recipients,
             @Param("activeYn") String activeYn,
             @Param("frequentYn") String frequentYn,
+            @Param("onHoldYn") String onHoldYn,
             @Param("color") String color);
 
     @Modifying
@@ -46,15 +48,32 @@ public interface MonitoringQueryRepository extends JpaRepository<MonitoringQuery
 
     @Modifying(clearAutomatically = true)
     @Transactional
+    @Query("UPDATE MonitoringQuery q SET q.onHoldYn = :onHoldYn WHERE q.msorId = :msorId")
+    int updateOnHold(@Param("msorId") Integer msorId, @Param("onHoldYn") String onHoldYn);
+
+    /**
+     * Kept separate from {@link #updateMonitoringQuery} because that statement assigns every
+     * field it names unconditionally: folding a NOT NULL column into it would null the column
+     * whenever a caller omitted the field, silently resetting an item's lookback.
+     */
+    @Modifying(clearAutomatically = true)
+    @Transactional
+    @Query("UPDATE MonitoringQuery q SET q.defaultLookbackDays = :days WHERE q.msorId = :msorId")
+    int updateDefaultLookbackDays(@Param("msorId") Integer msorId, @Param("days") Integer days);
+
+    @Modifying(clearAutomatically = true)
+    @Transactional
     @Query("UPDATE MonitoringQuery q SET "
             + "q.title = :title, "
             + "q.description = :description, "
             + "q.dbType = :dbType, "
+            + "q.category = :category, "
             + "q.sheetName = :sheetName, "
             + "q.sqlQuery = :sqlQuery, "
             + "q.recipients = :recipients, "
             + "q.activeYn = :activeYn, "
             + "q.frequentYn = :frequentYn, "
+            + "q.onHoldYn = :onHoldYn, "
             + "q.queryInterval = :queryInterval, "
             + "q.ownerName = :ownerName, "
             + "q.ownerEmail = :ownerEmail, "
@@ -65,11 +84,13 @@ public interface MonitoringQueryRepository extends JpaRepository<MonitoringQuery
             @Param("title") String title,
             @Param("description") String description,
             @Param("dbType") String dbType,
+            @Param("category") String category,
             @Param("sheetName") String sheetName,
             @Param("sqlQuery") String sqlQuery,
             @Param("recipients") String recipients,
             @Param("activeYn") String activeYn,
             @Param("frequentYn") String frequentYn,
+            @Param("onHoldYn") String onHoldYn,
             @Param("queryInterval") String queryInterval,
             @Param("ownerName") String ownerName,
             @Param("ownerEmail") String ownerEmail,

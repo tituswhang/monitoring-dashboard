@@ -1,80 +1,78 @@
 package com.lg.microservice.msor.monitoring.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.lg.microservice.msor.monitoring.model.event.MsorAlertEvent;
+import com.lg.microservice.msor.monitoring.model.event.MsorAlertEventData;
 import com.lg.microservice.msor.monitoring.props.EmailProperties;
-import com.sendgrid.Method;
-import com.sendgrid.Request;
-import com.sendgrid.Response;
-import com.sendgrid.SendGrid;
-import com.sendgrid.helpers.mail.Mail;
-import com.sendgrid.helpers.mail.objects.Attachments;
-import com.sendgrid.helpers.mail.objects.Content;
-import com.sendgrid.helpers.mail.objects.Email;
-import com.sendgrid.helpers.mail.objects.Personalization;
+import io.awspring.cloud.sqs.operations.SqsTemplate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.messaging.MessageHeaders;
 import org.springframework.stereotype.Service;
+import org.springframework.util.MimeTypeUtils;
 
-import java.io.IOException;
-import java.util.Base64;
 import java.util.List;
 
-/**
- * Sends a monitoring report email via SendGrid with the Excel workbook attached.
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class MonitoringEmailService {
 
-    private static final String XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-    private static final int SENDGRID_ACCEPTED = 202;
-
-    private final SendGrid sendGrid;
+    private final SqsTemplate sqsTemplate;
     private final EmailProperties emailProps;
+    private final ObjectMapper objectMapper;
 
-    /**
-     * @param subject    email subject line
-     * @param recipients list of To addresses
-     * @param htmlBody   HTML email body
-     * @param excelBytes raw xlsx bytes to attach
-     * @param filename   attachment filename (e.g. "report_2026-04-02.xlsx")
-     * @throws IOException if the SendGrid API call fails
-     */
+    @Value("${communication.events.queue-url}")
+    private String eventsQueueUrl;
+
+    @Value("${communication.events.event-key:msor.monitoring.alert}")
+    private String eventKey;
+
     public void sendReport(String subject, List<String> recipients,
-                           String htmlBody, byte[] excelBytes, String filename) throws IOException {
+                           String title, String formattedRunAt, String owner, int rowCount) {
         if (!emailProps.isEnabled()) {
             log.debug("[MSOR] Email not enabled — skipping alert '{}'", subject);
             return;
         }
-        Mail mail = new Mail();
-        mail.setFrom(new Email(emailProps.getFrom(), emailProps.getFromName()));
-        mail.setSubject(subject);
-        mail.addContent(new Content("text/html", htmlBody));
 
-        Personalization personalization = new Personalization();
         for (String recipient : recipients) {
-            personalization.addTo(new Email(recipient));
+            MsorAlertEventData data = MsorAlertEventData.builder()
+                    .recipientEmail(recipient)
+                    .subject(subject)
+                    .title(title)
+                    .runAt(formattedRunAt)
+                    .owner(owner)
+                    .rowCount(rowCount)
+                    .build();
+
+            MsorAlertEvent event = MsorAlertEvent.builder()
+                    .event(MsorAlertEvent.EventWrapper.builder()
+                            .eventName(eventKey)
+                            .data(data)
+                            .build())
+                    .build();
+
+            // Publish the JSON as a String, not as the POJO, and declare it application/json.
+            // Both halves matter to communication-service's listener (Message<JsonNode>):
+            //  - a typed payload makes SqsTemplate stamp this class's name into a JavaType
+            //    attribute, which the consumer Class.forName()s and fails — MsorAlertEvent is not
+            //    on its classpath — so the message dies before reaching the listener;
+            //  - a String payload defaults to contentType=text/plain, and no converter will turn
+            //    text/plain into the listener's JsonNode parameter.
+            sqsTemplate.send(to -> to.queue(eventsQueueUrl)
+                    .payload(toJson(event))
+                    .header(MessageHeaders.CONTENT_TYPE, MimeTypeUtils.APPLICATION_JSON_VALUE));
+            log.info("[MSOR] Alert event published for '{}' → {}", subject, recipient);
         }
-        mail.addPersonalization(personalization);
+    }
 
-        Attachments attachment = new Attachments();
-        attachment.setContent(Base64.getEncoder().encodeToString(excelBytes));
-        attachment.setType(XLSX_MIME);
-        attachment.setFilename(filename);
-        attachment.setDisposition("attachment");
-        mail.addAttachments(attachment);
-
-        Request request = new Request();
-        request.setMethod(Method.POST);
-        request.setEndpoint("mail/send");
-        request.setBody(mail.build());
-
-        Response response = sendGrid.api(request);
-        if (response.getStatusCode() != SENDGRID_ACCEPTED) {
-            log.error("SendGrid returned unexpected status {} sending '{}': {}",
-                    response.getStatusCode(), subject, response.getBody());
-        } else {
-            log.info("Email sent: '{}' to {} recipient(s), attachment: {}", subject, recipients.size(), filename);
+    private String toJson(MsorAlertEvent event) {
+        try {
+            return objectMapper.writeValueAsString(event);
+        } catch (JsonProcessingException ex) {
+            throw new IllegalStateException("Failed to serialize MSOR alert event", ex);
         }
     }
 

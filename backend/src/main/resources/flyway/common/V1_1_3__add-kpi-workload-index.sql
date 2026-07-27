@@ -1,0 +1,35 @@
+-- ============================================================
+--  Monitoring Dashboard — KPI workload index
+--  V1_1_3
+--
+--  The KPI tab asks one question per page load: which people
+--  touched which cases during month M?
+--
+--      WHERE entry_type IN ('COMMENT','STATUS_CHANGE')
+--        AND created_at >= :from AND created_at < :toExclusive
+--      GROUP BY author_email, msor_id, case_key
+--
+--  ix_mca_case (msor_id, case_key, created_at) cannot serve that:
+--  it leads with the case, and this filters on time.
+--
+--  Column order:
+--    entry_type   — two values, matched by IN.
+--    created_at   — where the selectivity is. One month is a thin
+--                   slice of a table that only ever grows, and this
+--                   query runs on every KPI page load.
+--    author_email — lets the null-author entries V1_0_9 backfilled
+--                   from legacy row_comment be told apart without
+--                   reading the row.
+--
+--  Deliberately NOT covering. The query also reads author_name for
+--  display, which is not indexed here: widening every entry of a
+--  growing index by a VARCHAR(255) to save a row lookup over one
+--  month of entries is a bad trade.
+--
+--  Phase 3 ("cases resolved per person per day") filters on the same
+--  two leading columns and groups by author_email + DATE(created_at).
+--  It is served by this index and adds no migration of its own.
+-- ============================================================
+
+CREATE INDEX ix_mca_kpi
+    ON monitoring_case_activity (entry_type, created_at, author_email);

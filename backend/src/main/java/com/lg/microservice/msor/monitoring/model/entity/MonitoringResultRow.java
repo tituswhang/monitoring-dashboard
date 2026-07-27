@@ -1,7 +1,10 @@
 package com.lg.microservice.msor.monitoring.model.entity;
 
+import com.lg.microservice.msor.monitoring.model.enums.CaseKeySource;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -10,6 +13,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
 
 @Getter
 @Builder
@@ -39,4 +44,15 @@ public class MonitoringResultRow {
 
     @Column(name = "row_comment", columnDefinition = "TEXT")
     private String rowComment;
+
+    @Column(name = "case_key", length = 64)
+    private String caseKey;
+
+    /** Which strategy produced {@link #caseKey}; null for rows written before {@code V1_1_0}. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "case_key_source", length = 20)
+    private CaseKeySource caseKeySource;
+
+    @Column(name = "updated_at", nullable = false, insertable = false, updatable = false)
+    private LocalDateTime updatedAt;
 }
