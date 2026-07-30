@@ -1,0 +1,60 @@
+<div class="p-6 space-y-6">
+  <a
+    routerLink="/kpi"
+    [queryParams]="{ month: month() }"
+    class="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+  >
+    <ng-icon name="lucideArrowLeft" class="h-4 w-4" />
+    Back to KPI
+  </a>
+
+  <header class="space-y-1">
+    <h1 class="text-xl font-semibold tracking-tight">{{ title() }}</h1>
+    <p class="text-sm text-muted-foreground">{{ subtitle() }} · {{ label() }}</p>
+  </header>
+
+
+  <div class="grid gap-4 lg:grid-cols-3">
+    <div uiCard>
+      <div uiCardContent class="p-5">
+        <p class="text-xs font-medium text-muted-foreground">Cases Touched</p>
+        <p class="text-2xl font-semibold mt-1">{{ caseCount() }}</p>
+      </div>
+    </div>
+
+    <div uiCard class="lg:col-span-2">
+      <div uiCardHeader>
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 uiCardTitle>Case Status</h3>
+            <p class="text-sm text-muted-foreground mt-1">
+              current status of the cases touched this month
+            </p>
+          </div>
+          <ng-icon name="lucideActivity" class="h-4 w-4 text-muted-foreground" />
+        </div>
+      </div>
+      <div uiCardContent>
+        @if (statusSlices().length === 0) {
+          <div class="flex h-40 items-center justify-center text-sm text-muted-foreground">
+            No cases touched this month
+          </div>
+        } @else {
+          <app-pie-chart [slices]="statusSlices()" [height]="200" [outerRadius]="70" />
+        }
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="h-[70vh] border-t">
+  <app-all-cases
+    [queries]="store.queries()"
+    [lockedCaseKeys]="caseKeys()"
+    [embedded]="true"
+    (selectQuery)="onSelectQuery($event)"
+    (selectCategory)="onSelectCategory($event)"
+    (rowsSaved)="onRowsSaved()"
+    (openActivity)="openActivity($event)"
+  />
+</div>

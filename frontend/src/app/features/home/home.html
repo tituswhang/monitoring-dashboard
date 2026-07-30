@@ -1,0 +1,139 @@
+<div class="p-6 space-y-6">
+  <header class="space-y-1">
+    <h1 class="text-xl font-semibold tracking-tight">Monitoring Items</h1>
+    <p class="text-sm text-muted-foreground max-w-3xl">{{ description }}</p>
+  </header>
+
+  <!-- ── Summary tiles ─────────────────────────────────────────────────── -->
+  <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div uiCard>
+      <div uiCardContent class="p-5">
+        <p class="text-xs font-medium text-muted-foreground">Active Items</p>
+        <p class="text-2xl font-semibold mt-1">{{ store.activeQueries().length }}</p>
+      </div>
+    </div>
+    <div uiCard>
+      <div uiCardContent class="p-5">
+        <p class="text-xs font-medium text-muted-foreground">Open Cases</p>
+        <p class="text-2xl font-semibold mt-1">{{ totalCases() }}</p>
+      </div>
+    </div>
+    <div uiCard>
+      <div uiCardContent class="p-5">
+        <p class="text-xs font-medium text-muted-foreground">New Today</p>
+        <p class="text-2xl font-semibold mt-1">
+          {{ newToday().count }}
+          @if (newToday().resolved > 0) {
+            <span class="text-sm font-normal text-muted-foreground">
+              (+{{ newToday().resolved }} resolved)
+            </span>
+          }
+        </p>
+      </div>
+    </div>
+    <div uiCard>
+      <div uiCardContent class="p-5">
+        <p class="text-xs font-medium text-muted-foreground">Total Items</p>
+        <p class="text-2xl font-semibold mt-1">{{ store.queries().length }}</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Pies ──────────────────────────────────────────────────────────── -->
+  <div class="grid gap-4 lg:grid-cols-2">
+    <div uiCard>
+      <div uiCardHeader>
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 uiCardTitle>Case Age</h3>
+            <p class="text-sm text-muted-foreground mt-1">{{ caseAgeSubtitle() }}</p>
+          </div>
+          <ng-icon name="lucideClock" class="h-4 w-4 text-muted-foreground" />
+        </div>
+      </div>
+      <div uiCardContent>
+        @if (store.loadingCaseRows()) {
+          <div uiSkeleton class="h-[220px] w-full"></div>
+        } @else if (caseAgeSlices().length === 0) {
+          <div class="flex h-40 items-center justify-center text-sm text-muted-foreground">
+            No cases to age
+          </div>
+        } @else {
+          <app-pie-chart [slices]="caseAgeSlices()" [height]="220" [outerRadius]="80" />
+        }
+      </div>
+    </div>
+
+    <div uiCard>
+      <div uiCardHeader>
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 uiCardTitle>Case Status</h3>
+            <p class="text-sm text-muted-foreground mt-1">across the latest run of each item</p>
+          </div>
+          <ng-icon name="lucideLayers" class="h-4 w-4 text-muted-foreground" />
+        </div>
+      </div>
+      <div uiCardContent>
+        @if (store.loadingQueries()) {
+          <div uiSkeleton class="h-[220px] w-full"></div>
+        } @else if (statusSlices().length === 0) {
+          <div class="flex h-40 items-center justify-center text-sm text-muted-foreground">
+            No cases
+          </div>
+        } @else {
+          <app-pie-chart [slices]="statusSlices()" [height]="220" [outerRadius]="80" />
+        }
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Item cards ────────────────────────────────────────────────────── -->
+  <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    @if (store.loadingQueries()) {
+      @for (row of skeletonRows; track $index) {
+        <div uiSkeleton class="h-28 w-full rounded-lg"></div>
+      }
+    } @else {
+      @for (item of store.queries(); track item.msorId) {
+        <a [routerLink]="['/query', item.msorId]" uiCard class="h-full block hover:bg-accent/40 transition-colors">
+          <div uiCardContent class="p-5 space-y-2">
+            <div class="flex items-start justify-between gap-2">
+              <h3 uiCardTitle class="truncate">{{ item.title }}</h3>
+              @if (item.onHoldYn === 'Y') {
+                <span uiBadge variant="warning" class="shrink-0 text-xs">On hold</span>
+              } @else if (item.activeYn === 'N') {
+                <span uiBadge variant="outline" class="shrink-0 text-xs">Inactive</span>
+              }
+            </div>
+
+            <div class="flex items-center gap-1.5">
+              <span
+                class="h-2 w-2 rounded-sm shrink-0"
+                [style.background-color]="categoryColor(item.category)"
+              ></span>
+              <span class="text-xs text-muted-foreground truncate">{{ item.category }}</span>
+            </div>
+
+            <p class="text-sm">
+              <span class="font-semibold">{{ openByQuery().get(item.msorId) ?? 0 }}</span>
+              <span class="text-muted-foreground"> open cases</span>
+            </p>
+          </div>
+        </a>
+      }
+    }
+  </div>
+</div>
+
+<!-- ── All Cases ───────────────────────────────────────────────────────── -->
+<div class="h-[70vh] border-t">
+  <app-all-cases
+    [queries]="store.queries()"
+    [embedded]="true"
+    (selectQuery)="onSelectQuery($event)"
+    (selectCategory)="onSelectCategory($event)"
+    (rowsSaved)="onRowsSaved()"
+    (openActivity)="openActivity($event)"
+  />
+</div>

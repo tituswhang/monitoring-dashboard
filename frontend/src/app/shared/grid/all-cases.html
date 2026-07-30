@@ -1,0 +1,256 @@
+<div class="flex flex-col h-full overflow-hidden">
+  <!-- Header -->
+  <div class="shrink-0 space-y-4" [class]="embedded() ? 'px-8 pt-2 pb-4' : 'px-8 pt-8 pb-4'">
+    @if (!embedded()) {
+      <div class="flex items-center justify-between gap-4 flex-wrap">
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-xl font-bold">All Cases</h1>
+          </div>
+          @if (!loading()) {
+            <p class="mt-1 text-sm text-muted-foreground">
+              {{ displayedRows().length }} row{{ displayedRows().length === 1 ? '' : 's' }}
+              {{ filterCategory() ? ' in ' + filterCategory() : ' across all monitoring items' }}
+            </p>
+          }
+        </div>
+      </div>
+    }
+
+    <!-- Filter bar -->
+    <div class="flex items-center gap-2 flex-wrap">
+      <select
+        [ngModel]="filterDbType()"
+        (ngModelChange)="filterDbType.set($event)"
+        class="rounded-md border border-input bg-background px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-ring cursor-pointer"
+      >
+        <option value="">All DB Types</option>
+        @for (t of allDbTypes; track t) {
+          <option [value]="t">{{ t }}</option>
+        }
+      </select>
+
+      <select
+        [ngModel]="filterStatus()"
+        (ngModelChange)="filterStatus.set($event)"
+        class="rounded-md border border-input bg-background px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-ring cursor-pointer"
+      >
+        <option value="">All Statuses</option>
+        <option value="OPEN">Open</option>
+        <option value="IN_PROGRESS">In Progress</option>
+        <option value="DONE">Done</option>
+      </select>
+
+      <select
+        [ngModel]="filterMsorId()"
+        (ngModelChange)="filterMsorId.set($event ? +$event : null)"
+        class="rounded-md border border-input bg-background px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-ring cursor-pointer max-w-[200px]"
+      >
+        <option [ngValue]="null">All Items</option>
+        @for (q of queries(); track q.msorId) {
+          <option [ngValue]="q.msorId">{{ q.title }}</option>
+        }
+      </select>
+
+      <!-- Hidden when the page is locked to a category -->
+      @if (!lockedCategory()) {
+        <select
+          [ngModel]="filterCategory()"
+          (ngModelChange)="filterCategory.set($event)"
+          class="rounded-md border border-input bg-background px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-ring cursor-pointer"
+        >
+          <option value="">All Categories</option>
+          @for (c of categoriesInRows(); track c) {
+            <option [value]="c">{{ c }}</option>
+          }
+        </select>
+      }
+
+      <!-- Cases whose first-seen date is today. Pure filter-state plumbing:
+           fromDate/toDate already filter on first_date, not run_date. -->
+      <button
+        type="button"
+        (click)="toggleNewToday()"
+        title="Show only cases first seen today"
+        class="flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer"
+        [class]="
+          newTodayOnly()
+            ? 'border-primary/60 bg-primary/10 text-primary'
+            : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+        "
+      >
+        <ng-icon name="lucideZap" class="h-3 w-3" />
+        New Today
+      </button>
+
+      <app-date-range-picker
+        [fromDate]="filterFromDate()"
+        [toDate]="filterToDate()"
+        [disabled]="newTodayOnly()"
+        disabledReason="Pinned to today by the New Today filter"
+        (fromChange)="filterFromDate.set($event)"
+        (toChange)="filterToDate.set($event)"
+      />
+
+      @if (hasActiveFilters()) {
+        <button
+          type="button"
+          (click)="clearFilters()"
+          class="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+        >
+          <ng-icon name="lucideX" class="h-3 w-3" />
+          Clear
+        </button>
+      }
+
+      <div class="ml-auto flex items-center gap-2 shrink-0">
+        <button
+          type="button"
+          (click)="load()"
+          class="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer hover:bg-accent"
+        >
+          <ng-icon name="lucideRefreshCw" class="h-3.5 w-3.5" />
+          Refresh
+        </button>
+        <button
+          type="button"
+          (click)="save()"
+          [disabled]="!hasUnsavedChanges() || saving()"
+          class="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors"
+          [class]="
+            hasUnsavedChanges() && !saving()
+              ? 'cursor-pointer hover:bg-accent'
+              : 'cursor-not-allowed opacity-50'
+          "
+        >
+          <ng-icon name="lucideSave" class="h-3.5 w-3.5" />
+          {{ saving() ? 'Saving…' : 'Save Changes' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Grid -->
+  <div class="px-8 pb-8 flex-1 min-h-0">
+    <div class="flex flex-col h-full rounded-md border overflow-hidden">
+      @if (loading()) {
+        <div class="space-y-2 p-3">
+          @for (row of skeletonRows; track $index) {
+            <div uiSkeleton class="h-6 w-full"></div>
+          }
+        </div>
+      } @else if (displayedRows().length === 0) {
+        <div class="flex flex-col items-center justify-center h-full text-muted-foreground gap-2">
+          <ng-icon name="lucideLayers" class="h-10 w-10 opacity-20" />
+          <p class="text-sm font-medium">
+            {{ newTodayOnly() ? 'No new cases today' : 'No cases found' }}
+          </p>
+          @if (newTodayOnly()) {
+            <p class="text-xs max-w-sm text-center">
+              A case keeps its original first-seen date when it recurs, so a case detected
+              again today is not counted as new.
+            </p>
+          } @else {
+            <p class="text-xs">Try adjusting the filters above</p>
+          }
+        </div>
+      } @else {
+        <div class="flex flex-col h-full">
+          <div
+            class="flex items-center justify-between gap-3 px-2 py-1.5 border-b shrink-0 flex-wrap"
+          >
+            <span class="text-xs text-muted-foreground">
+              {{ displayedRows().length }} row{{ displayedRows().length === 1 ? '' : 's' }}
+            </span>
+            <div class="flex items-center gap-3">
+              <app-column-picker
+                [columns]="hideableCols()"
+                [overrides]="visibility.overrides()"
+                [autoHidden]="autoHidden()"
+                (setVisible)="onSetVisible($event)"
+                (setAll)="onSetAll($event)"
+                (reset)="visibility.reset()"
+              />
+              <app-empty-columns-toggle
+                [count]="emptyDataColumns().length"
+                [hidden]="hideEmptyCols()"
+                (toggled)="hideEmptyCols.set(!hideEmptyCols())"
+              />
+              <app-excel-export-button
+                [gridApi]="gridApiGetter"
+                [fileName]="exportFileName()"
+                [sheetName]="lockedCategory() ?? 'All Cases'"
+              />
+              <button
+                type="button"
+                (click)="collapseAll()"
+                class="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+              >
+                <ng-icon name="lucideChevronsUpDown" class="h-3 w-3" />
+                Collapse All
+              </button>
+            </div>
+          </div>
+
+          @if (selectedCount() > 0) {
+            <div
+              class="flex items-center gap-2 px-2 py-1.5 border-b shrink-0 bg-primary/5 flex-wrap"
+            >
+              <span class="text-xs font-medium text-primary shrink-0">
+                {{ selectedCount() }} selected
+              </span>
+              <select
+                (change)="stageBulkStatus($event)"
+                class="rounded border border-input bg-background px-1.5 py-0.5 text-xs outline-none focus:ring-1 focus:ring-ring cursor-pointer"
+              >
+                <option value="">Change status…</option>
+                @for (o of statusOptions; track o.value) {
+                  <option [value]="o.value">{{ o.label }}</option>
+                }
+              </select>
+              <input
+                type="text"
+                [ngModel]="bulkComment()"
+                (ngModelChange)="bulkComment.set($event)"
+                (keydown)="onBulkCommentKeydown($event)"
+                placeholder="Comment all + Enter"
+                class="rounded border border-input bg-background px-1.5 py-0.5 text-xs outline-none focus:ring-1 focus:ring-ring w-44"
+              />
+              <span class="text-xs text-muted-foreground shrink-0">
+                Posts to each selected case
+              </span>
+              <button
+                type="button"
+                (click)="deselectAll()"
+                class="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+              >
+                Deselect
+              </button>
+            </div>
+          }
+
+          <!-- The size goes on <ag-grid-angular> itself, not this wrapper: unlike
+               React's <AgGridReact>, which renders a div that fills its parent, the
+               Angular component *is* the host element and ships no display rule of
+               its own — left inline it collapses and the grid renders zero rows. -->
+          <div class="ag-theme-datagrip flex-1 min-h-0">
+            <ag-grid-angular
+              class="block h-full w-full"
+              theme="legacy"
+              [rowData]="displayedRows()"
+              [columnDefs]="colDefs()"
+              [rowHeight]="24"
+              [headerHeight]="26"
+              rowSelection="multiple"
+              [suppressMovableColumns]="true"
+              [suppressCellFocus]="true"
+              [getRowId]="getRowId"
+              (selectionChanged)="onSelectionChanged()"
+              (gridReady)="onGridReady($event)"
+            />
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+</div>

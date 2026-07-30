@@ -1,0 +1,227 @@
+<div class="flex h-screen overflow-hidden bg-background">
+  <!-- ── Left sidebar ──────────────────────────────────────────────────── -->
+  <aside
+    class="shrink-0 border-r bg-sidebar flex flex-col overflow-hidden transition-[width] duration-200"
+    [class.w-64]="sidebarOpen()"
+    [class.w-0]="!sidebarOpen()"
+  >
+    <div class="w-64 flex items-center h-14 border-b shrink-0">
+      <button
+        type="button"
+        (click)="toggleSidebar()"
+        title="Toggle sidebar"
+        class="flex items-center justify-center w-10 h-full shrink-0 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer"
+      >
+        <ng-icon name="lucideMenu" class="h-4 w-4" />
+      </button>
+      <ng-icon name="lucideActivity" class="h-4 w-4 text-muted-foreground shrink-0" />
+      <span class="font-semibold text-sm ml-2 flex-1">Monitoring Dashboard</span>
+    </div>
+
+    <div class="px-2 pt-3 pb-1 shrink-0 space-y-0.5">
+      <a
+        routerLink="/"
+        routerLinkActive="bg-accent text-accent-foreground font-medium"
+        [routerLinkActiveOptions]="{ exact: true }"
+        class="w-full text-left px-3 py-2.5 rounded-md text-sm transition-colors cursor-pointer flex items-center gap-2 text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+      >
+        <ng-icon name="lucideHouse" class="h-4 w-4 shrink-0" />
+        Home
+      </a>
+      <!-- Stays lit while drilled into a person — the person page is part of KPI. -->
+      <a
+        routerLink="/kpi"
+        [queryParams]="{ month: kpiMonth }"
+        routerLinkActive="bg-accent text-accent-foreground font-medium"
+        class="w-full text-left px-3 py-2.5 rounded-md text-sm transition-colors cursor-pointer flex items-center gap-2 text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+      >
+        <ng-icon name="lucideUsers" class="h-4 w-4 shrink-0" />
+        KPI
+      </a>
+    </div>
+
+    <div class="flex items-center px-4 pt-3 pb-1 shrink-0">
+      <button
+        type="button"
+        (click)="toggleItems()"
+        class="flex items-center gap-1 flex-1 cursor-pointer group"
+      >
+        <p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Monitoring Items
+        </p>
+        <ng-icon
+          name="lucideChevronDown"
+          class="h-3 w-3 text-muted-foreground transition-transform duration-200"
+          [class.-rotate-90]="!itemsOpen()"
+        />
+      </button>
+      <button
+        type="button"
+        [matMenuTriggerFor]="sectionMenu"
+        title="Monitoring items actions"
+        class="rounded p-0.5 transition-colors cursor-pointer text-muted-foreground hover:text-foreground hover:bg-accent"
+      >
+        <ng-icon name="lucideEllipsis" class="h-3.5 w-3.5" />
+      </button>
+
+      <mat-menu #sectionMenu="matMenu" class="app-menu">
+        <button type="button" mat-menu-item (click)="createItem()">
+          <span class="flex items-center gap-2 text-xs">
+            <ng-icon name="lucidePlus" class="h-3.5 w-3.5" />Create New Item
+          </span>
+        </button>
+        <button type="button" mat-menu-item (click)="runItems()">
+          <span class="flex items-center gap-2 text-xs">
+            <ng-icon name="lucidePlay" class="h-3.5 w-3.5" />Run Items
+          </span>
+        </button>
+      </mat-menu>
+    </div>
+
+    @if (itemsOpen()) {
+      <div class="px-2 pb-1 shrink-0">
+        <div class="relative">
+          <ng-icon
+            name="lucideSearch"
+            class="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground pointer-events-none"
+          />
+          <input
+            type="text"
+            [ngModel]="sidebarSearch()"
+            (ngModelChange)="sidebarSearch.set($event)"
+            placeholder="Search…"
+            class="w-full rounded-md border border-input bg-background pl-7 pr-7 py-1.5 text-xs outline-none focus:ring-1 focus:ring-ring"
+          />
+          @if (sidebarSearch()) {
+            <button
+              type="button"
+              (click)="clearSearch()"
+              class="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+            >
+              <ng-icon name="lucideX" class="h-3 w-3" />
+            </button>
+          }
+        </div>
+      </div>
+
+      <div class="flex-1 overflow-y-auto px-2 pb-4 space-y-1">
+        @if (store.loadingQueries()) {
+          @for (row of skeletonRows; track $index) {
+            <div uiSkeleton class="h-9 w-full rounded-md"></div>
+          }
+        } @else if (filteredQueries().length === 0) {
+          <p class="px-3 py-4 text-xs text-muted-foreground text-center">No items match</p>
+        } @else {
+          @for (group of groupedQueries(); track group.category) {
+            <div>
+              <button
+                type="button"
+                (click)="toggleCategory(group.category)"
+                class="flex w-full items-center gap-1.5 px-2 py-1 text-left cursor-pointer group"
+              >
+                <ng-icon
+                  name="lucideChevronDown"
+                  class="h-3 w-3 text-muted-foreground transition-transform duration-200 shrink-0"
+                  [class.-rotate-90]="isCollapsed(group.category)"
+                />
+                <span
+                  class="h-2 w-2 rounded-sm shrink-0"
+                  [style.background-color]="categoryColor(group.category)"
+                ></span>
+                <span class="text-xs font-medium text-muted-foreground truncate">
+                  {{ group.category }}
+                </span>
+                <span class="text-xs text-muted-foreground/70 ml-auto shrink-0">
+                  {{ group.items.length }}
+                </span>
+              </button>
+
+              @if (!isCollapsed(group.category)) {
+                <div class="space-y-0.5 pl-2">
+                  @for (item of group.items; track item.msorId) {
+                    <a
+                      [routerLink]="['/query', item.msorId]"
+                      routerLinkActive="bg-accent text-accent-foreground font-medium"
+                      class="w-full text-left px-3 py-2 rounded-md text-sm transition-colors cursor-pointer flex items-center gap-2 text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+                      [title]="item.title"
+                    >
+                      <span
+                        class="h-1.5 w-1.5 rounded-full shrink-0"
+                        [style.background-color]="queryColors().get(item.msorId)"
+                      ></span>
+                      <span class="truncate flex-1">{{ item.title }}</span>
+                      @if (item.onHoldYn === 'Y') {
+                        <ng-icon
+                          name="lucideCirclePause"
+                          class="h-3 w-3 shrink-0 text-amber-500"
+                          title="On hold"
+                        />
+                      }
+                    </a>
+                  }
+                </div>
+              }
+            </div>
+          }
+        }
+      </div>
+    }
+  </aside>
+
+  <!-- ── Main column ───────────────────────────────────────────────────── -->
+  <div class="flex-1 flex flex-col overflow-hidden">
+    <header class="h-14 border-b shrink-0 flex items-center gap-2 px-4">
+      @if (!sidebarOpen()) {
+        <button
+          type="button"
+          (click)="toggleSidebar()"
+          title="Toggle sidebar"
+          class="rounded p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer"
+        >
+          <ng-icon name="lucideMenu" class="h-4 w-4" />
+        </button>
+      }
+
+      <div class="flex-1 flex justify-center px-4">
+        <app-global-search
+          [queries]="store.queries()"
+          [latestMap]="store.latestMap()"
+          (select)="openQuery($event)"
+        />
+      </div>
+
+      @if (canManageUsers()) {
+        <button
+          type="button"
+          (click)="manageUsers()"
+          title="Manage users"
+          class="rounded p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer"
+        >
+          <ng-icon name="lucideUserPlus" class="h-4 w-4" />
+        </button>
+      }
+
+      <button
+        type="button"
+        (click)="theme.toggle()"
+        [title]="theme.darkMode() ? 'Switch to light mode' : 'Switch to dark mode'"
+        class="rounded p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer"
+      >
+        <ng-icon [name]="theme.darkMode() ? 'lucideSun' : 'lucideMoon'" class="h-4 w-4" />
+      </button>
+
+      <button
+        type="button"
+        (click)="signOut()"
+        title="Sign out"
+        class="rounded p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer"
+      >
+        <ng-icon name="lucideLogOut" class="h-4 w-4" />
+      </button>
+    </header>
+
+    <main class="flex-1 overflow-y-auto">
+      <router-outlet />
+    </main>
+  </div>
+</div>

@@ -1,0 +1,134 @@
+/* ── Material MD3 tokens → the app's oklch Tailwind palette ──────────────────
+ *
+ * Material is used only for behaviour-heavy widgets (dialog, datepicker, menu,
+ * autocomplete, tooltip, select, sidenav); Tailwind still owns layout and
+ * presentation. Left alone, those widgets would render in Material's own colours
+ * and ignore the app's light/dark theme entirely.
+ *
+ * `@angular/material/prebuilt-themes/rose-red.css` is loaded ahead of this file
+ * (see angular.json "styles") purely to supply the full token surface — typography,
+ * shape, elevation, and the ~160 `--mat-sys-*` names. This file then re-points the
+ * *colour* tokens at the `--color-*` variables defined in styles.css.
+ *
+ * Why there is no separate `.dark` block: `--color-*` is already redefined under
+ * `.dark`, so every `var(--color-…)` below re-resolves on its own when the class
+ * flips. One mapping, both themes. Adding a `.dark` override here would be
+ * redundant at best and a second source of truth at worst.
+ *
+ * `:root` is a pseudo-class (specificity 0,1,0) and so outranks the prebuilt
+ * theme's `html` (0,0,1) regardless of load order.
+ */
+
+:root {
+  /* Primary — drives datepicker selection, checked checkboxes, focused fields */
+  --mat-sys-primary: var(--color-primary);
+  --mat-sys-on-primary: var(--color-primary-foreground);
+  --mat-sys-primary-container: var(--color-primary);
+  --mat-sys-on-primary-container: var(--color-primary-foreground);
+  --mat-sys-inverse-primary: var(--color-primary);
+
+  /* Secondary — Material uses the *-container roles for muted chips and hovers */
+  --mat-sys-secondary: var(--color-secondary-foreground);
+  --mat-sys-on-secondary: var(--color-secondary);
+  --mat-sys-secondary-container: var(--color-secondary);
+  --mat-sys-on-secondary-container: var(--color-secondary-foreground);
+
+  /* Surfaces. Dialogs sit on -container-high, menus/autocomplete panels on
+     -container, so both are pinned to the card colour rather than Material's
+     tonal ramp — otherwise a dialog would read as a different shade of grey
+     from every Card behind it. */
+  --mat-sys-background: var(--color-background);
+  --mat-sys-on-background: var(--color-foreground);
+  --mat-sys-surface: var(--color-card);
+  --mat-sys-on-surface: var(--color-card-foreground);
+  --mat-sys-surface-variant: var(--color-muted);
+  --mat-sys-on-surface-variant: var(--color-muted-foreground);
+  --mat-sys-surface-container-lowest: var(--color-background);
+  --mat-sys-surface-container-low: var(--color-card);
+  --mat-sys-surface-container: var(--color-card);
+  --mat-sys-surface-container-high: var(--color-card);
+  --mat-sys-surface-container-highest: var(--color-accent);
+  --mat-sys-surface-bright: var(--color-card);
+  --mat-sys-surface-dim: var(--color-muted);
+  --mat-sys-surface-tint: transparent;
+
+  /* Borders and dividers */
+  --mat-sys-outline: var(--color-border);
+  --mat-sys-outline-variant: var(--color-border);
+
+  /* Errors reuse the destructive role the rest of the UI already uses */
+  --mat-sys-error: var(--color-destructive);
+  --mat-sys-on-error: var(--color-destructive-foreground);
+  --mat-sys-error-container: var(--color-destructive);
+  --mat-sys-on-error-container: var(--color-destructive-foreground);
+
+  /* Tooltips render on the inverse surface. Flipping these to foreground /
+     background keeps them legible in both themes without a dark-mode branch. */
+  --mat-sys-inverse-surface: var(--color-foreground);
+  --mat-sys-inverse-on-surface: var(--color-background);
+
+  /* Corner radius — Material defaults are rounder than this UI's 0.625rem */
+  --mat-sys-corner-extra-small: 0.375rem;
+  --mat-sys-corner-small: 0.5rem;
+  --mat-sys-corner-medium: var(--radius);
+  --mat-sys-corner-large: var(--radius);
+
+  /* Typography — inherit the app font rather than Material's Roboto stack */
+  --mat-sys-body-large-font: inherit;
+  --mat-sys-body-medium-font: inherit;
+  --mat-sys-body-small-font: inherit;
+  --mat-sys-label-large-font: inherit;
+  --mat-sys-label-medium-font: inherit;
+  --mat-sys-label-small-font: inherit;
+  --mat-sys-title-large-font: inherit;
+  --mat-sys-title-medium-font: inherit;
+  --mat-sys-title-small-font: inherit;
+}
+
+/* ── Density ────────────────────────────────────────────────────────────────
+ * Material's default control heights are noticeably taller than this UI, which
+ * runs compact throughout (h-10 table headers, py-1.5 buttons, text-sm bodies).
+ * These are the per-component height tokens for the widgets actually in use;
+ * revisit alongside each component as it lands rather than guessing ahead.
+ */
+:root {
+  --mat-form-field-container-height: 40px;
+  --mat-form-field-container-vertical-padding: 8px;
+  --mat-menu-item-label-text-size: 0.875rem;
+  --mat-option-label-text-size: 0.875rem;
+  --mat-select-trigger-text-size: 0.875rem;
+}
+
+/* The CDK overlay container is appended to <body>, outside the app root. The
+   dark-mode class is toggled on <html>, so `.dark` descendant selectors still
+   reach it — but AG Grid's and Tailwind's global resets do not. Keep overlay
+   panels on the themed surface explicitly. */
+.cdk-overlay-container {
+  color: var(--color-foreground);
+}
+
+/* ── Dialogs ────────────────────────────────────────────────────────────────
+ * Every dialog in this app draws its own chrome in Tailwind — header, borders,
+ * footer — exactly as the React portals did. Material's surface would otherwise
+ * paint a second card behind it: its own background, radius, elevation, and
+ * 24px of padding around content that already has its own.
+ *
+ * `app-dialog` is passed as `panelClass`, so this strips Material back to a
+ * positioned, focus-trapped, Escape-dismissable box and nothing more.
+ */
+.app-dialog .mat-mdc-dialog-surface {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 0;
+  overflow: hidden;
+  box-shadow:
+    0 10px 15px -3px rgb(0 0 0 / 0.1),
+    0 4px 6px -4px rgb(0 0 0 / 0.1);
+}
+
+.app-dialog .mat-mdc-dialog-container {
+  --mdc-dialog-container-color: transparent;
+  padding: 0;
+}

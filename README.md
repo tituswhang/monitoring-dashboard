@@ -1,6 +1,6 @@
 # Monitoring Dashboard
 
-A full-stack Spring Boot + React application for DB-driven SQL monitoring. It executes SQL queries against target databases on a configurable schedule, persists results as trackable *cases*, and publishes alert events when issues are detected.
+A full-stack Spring Boot + Angular application for DB-driven SQL monitoring. It executes SQL queries against target databases on a configurable schedule, persists results as trackable *cases*, and publishes alert events when issues are detected.
 
 **Live demo:** https://monitoring-dashboard-demo.netlify.app/ (frontend only, backed by in-memory mock data — sign in with any username and password)
 
@@ -44,8 +44,8 @@ All monitoring items and schedules are **database-driven** — no code changes r
 | **Framework** | Spring Boot | 3.3.13 |
 | **Language** | Java | 21 |
 | **Build** | Gradle | 8.9 |
-| **Frontend** | React + TypeScript | - |
-| **Build Tool (FE)** | Vite | - |
+| **Frontend** | Angular 21 + TypeScript | - |
+| **Build Tool (FE)** | Angular CLI (esbuild) | - |
 | **Data grid** | AG Grid Community | 35.3.0 |
 | **Auth** | Spring Security + OAuth2 resource server (AWS Cognito) | - |
 | **Alert transport** | AWS SQS (Spring Cloud AWS) | 3.1.0 |
@@ -109,19 +109,30 @@ monitoring-dashboard/
 │   ├── Dockerfile
 │   └── build.gradle
 │
-├── frontend/                                          # React + Vite dashboard
-│   ├── src/
-│   │   ├── api/monitoring.ts                          # API client (mock-backed in this build)
-│   │   ├── api/mockData.ts                            # In-memory fixtures on a rolling date spine
-│   │   ├── auth/auth.ts                               # Session, roles, demo login
-│   │   ├── components/ui/                             # shadcn/ui component library
-│   │   ├── components/UserAdminModal.tsx              # Invite users, assign roles
-│   │   ├── lib/xlsx.ts                                # Client-side Excel export
-│   │   ├── pages/DashboardPage.tsx                    # Main dashboard, KPI, case timeline
-│   │   ├── pages/LoginPage.tsx                        # Cognito sign-in
-│   │   ├── pages/DemoLoginPage.tsx                    # Local demo sign-in
-│   │   ├── types/monitoring.ts                        # TypeScript types
-│   │   └── App.tsx
+├── frontend/                                          # Angular 21 dashboard
+│   ├── src/app/
+│   │   ├── core/                                      # Services and models
+│   │   │   ├── monitoring.service.ts                  # API client (mock-backed in this build)
+│   │   │   ├── mock-data.ts                           # In-memory fixtures on a rolling date spine
+│   │   │   ├── auth.service.ts                        # Session, roles, demo login
+│   │   │   ├── auth.guard.ts                          # Route gate; loads roles before first paint
+│   │   │   ├── dashboard-store.ts                     # Signal store shared by every view
+│   │   │   ├── theme.service.ts                       # Dark mode
+│   │   │   └── models/monitoring.ts                   # TypeScript types
+│   │   ├── features/
+│   │   │   ├── shell/                                 # Sidebar, header, global search
+│   │   │   ├── home/  category/  kpi/  person/        # Dashboard views
+│   │   │   ├── query-detail/                          # Runs, scan range, results grid
+│   │   │   ├── login/                                 # Cognito + demo sign-in
+│   │   │   └── modals/                                # MatDialog: edit, history, activity, users
+│   │   ├── shared/
+│   │   │   ├── grid/                                  # AG Grid layer, cell renderers, set filter
+│   │   │   ├── charts/                                # ECharts pie
+│   │   │   ├── overlays/                              # CDK overlays, Material theme bridge
+│   │   │   ├── ui/                                    # Card, badge, table, skeleton primitives
+│   │   │   └── utils/xlsx.ts                          # Client-side Excel export
+│   │   └── app.routes.ts                              # /query/:id, /category/:name, /kpi
+│   ├── angular.json
 │   └── package.json
 │
 └── .gitlab-ci.yml                                     # CI/CD pipeline
@@ -238,7 +249,7 @@ http://localhost:8080/swagger-ui.html
 - **Java 21** (toolchain configured in build.gradle)
 - **Gradle 8.9** (wrapper included)
 - **MariaDB/MySQL** (local development via Docker)
-- **Node.js 18+** (for frontend)
+- **Node.js 20.19+ / 22.12+** (for frontend — required by Angular 21)
 
 ### Backend Setup (Java)
 
@@ -276,13 +287,16 @@ export DB_PORT=3306
 ./gradlew sonarqube
 ```
 
-### Frontend Setup (React + Vite)
+### Frontend Setup (Angular)
 
 ```bash
 cd frontend
 npm install
-npm run dev
-# Runs on http://localhost:5173
+npm start
+# Runs on http://localhost:4200
+
+npm run build   # production bundle
+npm test        # unit tests (Vitest)
 ```
 
 ## Local Development (Docker)
@@ -353,9 +367,9 @@ Configure each target database used by your `db_type` values (`DATABASE1`–`DAT
 ### Authentication & Authorization
 
 Auth is **off by default** so a fresh checkout runs without an identity provider; the deployed
-profiles turn it on. The frontend mirrors this with `VITE_AUTH_ENABLED` — when it is not
-`"true"` the SPA shows a local demo login and resolves the current user client-side, which is
-how the hosted demo runs with no backend at all.
+profiles turn it on. The frontend mirrors this with `authEnabled` in `src/environments/` —
+when it is false the SPA shows a local demo login and resolves the current user client-side,
+which is how the hosted demo runs with no backend at all.
 
 | Variable | Description | Default |
 |----------|-------------|---------|
@@ -367,26 +381,35 @@ how the hosted demo runs with no backend at all.
 | `COGNITO_ISSUER_URI` | Cognito user-pool issuer | placeholder |
 | `COGNITO_USER_POOL_ID` / `COGNITO_CLIENT_ID` / `COGNITO_CLIENT_SECRET` / `COGNITO_DOMAIN` | Cognito app client | (empty) |
 | `COGNITO_REDIRECT_URI` | OAuth callback | `http://localhost:8080/monitoring/v1/auth/callback` |
-| `COGNITO_POST_LOGIN_REDIRECT_URI` | Where a signed-in user lands | `http://localhost:5173/` |
+| `COGNITO_POST_LOGIN_REDIRECT_URI` | Where a signed-in user lands | `http://localhost:4200/` |
 | `DASHBOARD_URL` | Link sent to invitees | falls back to the post-login redirect |
 
 ### Frontend
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `VITE_AUTH_ENABLED` | `"true"` restores the real Cognito flow; anything else is demo login | unset (demo) |
-| `VITE_SHOP_ADMIN_ORDER_URL` | Base URL for deep-linking an order into a shop admin. When unset, order numbers render as plain text | unset |
+Angular has no `import.meta.env`, so these are build-time fields in
+`src/environments/environment.ts` (swapped for `environment.prod.ts` on a production build)
+rather than environment variables.
+
+| Field | Description | Default |
+|-------|-------------|---------|
+| `authEnabled` | `true` restores the real Cognito flow; `false` is demo login | `false` (demo) |
+| `shopAdminOrderUrl` | Base URL for deep-linking an order into a shop admin. When empty, order numbers render as plain text | `''` |
 
 ## Deployment
 
 ### Frontend (Netlify)
 
-The frontend is a Vite SPA and can be deployed standalone to Netlify (the API client currently uses in-memory mock data, so no backend is required for a demo deploy). A live build is hosted at https://monitoring-dashboard-demo.netlify.app/.
+The frontend is an Angular SPA and can be deployed standalone to Netlify (the API client currently uses in-memory mock data, so no backend is required for a demo deploy). A live build is hosted at https://monitoring-dashboard-demo.netlify.app/.
 
 Repo-root config files:
 
-- **`netlify.toml`** — sets `base = "frontend"`, build command, and publish dir (`dist`, relative to base)
-- **`.nvmrc`** — pins Node 20 (Vite 7 requires Node 20+)
+- **`netlify.toml`** — sets `base = "frontend"`, build command, publish dir
+  (`dist/monitoring-dashboard/browser`, relative to base), and a catch-all redirect to
+  `index.html`. The redirect is required: the app routes on real paths (`/query/42`), so
+  without it every deep link and refresh would 404.
+- **`.nvmrc`** — pins Node 20 (Angular 21 requires Node 20.19+)
 
 Steps:
 
@@ -401,10 +424,11 @@ npm install -g netlify-cli
 netlify deploy --build --prod
 ```
 
-The mock layer is confined to `frontend/src/api/monitoring.ts`, whose exported signatures match
-the real HTTP client one-for-one — pointing the SPA at a live service means replacing that one
-module's bodies with `fetch` calls against `/v1`, and setting `VITE_AUTH_ENABLED=true` so the
-Cognito sign-in flow replaces the demo login. Nothing else in the app knows the difference.
+The mock layer is confined to `frontend/src/app/core/monitoring.service.ts`, whose method
+signatures match the real HTTP client one-for-one — pointing the SPA at a live service means
+replacing that one service's bodies with HTTP calls against `/v1`, and setting
+`authEnabled: true` so the Cognito sign-in flow replaces the demo login. Nothing else in the
+app knows the difference.
 
 ### Docker Container
 

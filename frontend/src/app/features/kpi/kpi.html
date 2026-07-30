@@ -1,0 +1,160 @@
+<div class="p-6 space-y-6">
+  <header class="space-y-2">
+    <div class="flex items-center justify-between gap-4 flex-wrap">
+      <h1 class="text-xl font-semibold tracking-tight">Case Workload</h1>
+
+      <!-- ‹ July 2026 › — clamped to [earliest, current] -->
+      <div class="flex items-center gap-1">
+        <button
+          type="button"
+          (click)="step(-1)"
+          [disabled]="!canGoBack()"
+          title="Previous month"
+          class="rounded p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+        >
+          <ng-icon name="lucideChevronLeft" class="h-4 w-4" />
+        </button>
+        <span class="text-sm font-medium tabular-nums min-w-[9rem] text-center">
+          {{ label() }}
+        </span>
+        <button
+          type="button"
+          (click)="step(1)"
+          [disabled]="!canGoForward()"
+          title="Next month"
+          class="rounded p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+        >
+          <ng-icon name="lucideChevronRight" class="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+    <p class="text-sm text-muted-foreground max-w-4xl">{{ description }}</p>
+  </header>
+
+  <!-- Stat tiles -->
+  <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div uiCard>
+      <div uiCardContent class="p-5">
+        <p class="text-xs font-medium text-muted-foreground">People Active</p>
+        <p class="text-2xl font-semibold mt-1">{{ personCards().length }}</p>
+      </div>
+    </div>
+    <div uiCard>
+      <div uiCardContent class="p-5">
+        <p class="text-xs font-medium text-muted-foreground">Cases Touched</p>
+        <p class="text-2xl font-semibold mt-1">{{ kpi().touchedTotal }}</p>
+        <p class="text-xs text-muted-foreground mt-0.5">distinct — not the card total</p>
+      </div>
+    </div>
+    <div uiCard>
+      <div uiCardContent class="p-5">
+        <p class="text-xs font-medium text-muted-foreground">Unattended</p>
+        <p class="text-2xl font-semibold mt-1">{{ kpi().unattended.keys.size }}</p>
+      </div>
+    </div>
+    <div uiCard>
+      <div uiCardContent class="p-5">
+        <p class="text-xs font-medium text-muted-foreground">Total Cases</p>
+        <p class="text-2xl font-semibold mt-1">{{ totalCases() }}</p>
+        @if (kpi().dormant > 0) {
+          <p class="text-xs text-muted-foreground mt-0.5">{{ kpi().dormant }} dormant</p>
+        }
+      </div>
+    </div>
+  </div>
+
+  @if (store.loadingWorkload()) {
+    <p class="text-sm text-muted-foreground">Loading…</p>
+  } @else if (store.workloadError(); as err) {
+    <p class="text-sm text-destructive">{{ err }}</p>
+  } @else {
+    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      @for (card of personCards(); track card.id) {
+        <button type="button" (click)="open(card)" class="text-left cursor-pointer">
+          <div uiCard class="h-full hover:bg-accent/40 transition-colors">
+            <div uiCardHeader>
+              <div class="flex items-start justify-between gap-2">
+                <div class="min-w-0">
+                  <h3 uiCardTitle class="truncate">{{ card.title }}</h3>
+                  <p class="text-xs text-muted-foreground truncate mt-0.5">
+                    {{ card.subtitle }}
+                  </p>
+                </div>
+                @if (card.isYou) {
+                  <span uiBadge variant="secondary" class="shrink-0 text-[0.65rem]">You</span>
+                }
+              </div>
+            </div>
+            <div uiCardContent>
+              <app-pie-chart
+                [slices]="card.slices"
+                [height]="200"
+                [outerRadius]="70"
+                [showLegend]="false"
+              />
+              <p class="text-xs text-muted-foreground text-center">
+                <span class="font-medium text-foreground">{{ card.active }}</span> active ·
+                {{ card.total }} touched
+              </p>
+            </div>
+          </div>
+        </button>
+      } @empty {
+        <p class="text-sm text-muted-foreground">Nobody touched a case this month.</p>
+      }
+
+      <!-- The two non-person buckets, drawn last so real people lead. -->
+      @if (unattributedCard(); as card) {
+        <button type="button" (click)="open(card)" class="text-left cursor-pointer">
+          <div uiCard class="h-full hover:bg-accent/40 transition-colors border-dashed">
+            <div uiCardHeader>
+              <h3 uiCardTitle class="truncate">{{ card.title }}</h3>
+              <p class="text-xs text-muted-foreground truncate mt-0.5">{{ card.subtitle }}</p>
+            </div>
+            <div uiCardContent>
+              <app-pie-chart
+                [slices]="card.slices"
+                [height]="200"
+                [outerRadius]="70"
+                [showLegend]="false"
+              />
+              <p class="text-xs text-muted-foreground text-center">
+                <span class="font-medium text-foreground">{{ card.active }}</span> active ·
+                {{ card.total }} touched
+              </p>
+            </div>
+          </div>
+        </button>
+      }
+
+      @if (unattendedCard(); as card) {
+        <button type="button" (click)="open(card)" class="text-left cursor-pointer">
+          <div uiCard class="h-full hover:bg-accent/40 transition-colors border-dashed">
+            <div uiCardHeader>
+              <h3 uiCardTitle class="truncate">{{ card.title }}</h3>
+              <p class="text-xs text-muted-foreground truncate mt-0.5">{{ card.subtitle }}</p>
+            </div>
+            <div uiCardContent>
+              <app-pie-chart
+                [slices]="card.slices"
+                [height]="200"
+                [outerRadius]="70"
+                [showLegend]="false"
+              />
+              <p class="text-xs text-muted-foreground text-center">
+                <span class="font-medium text-foreground">{{ card.active }}</span> unresolved
+              </p>
+            </div>
+          </div>
+        </button>
+      }
+    </div>
+
+    @if (kpi().orphaned > 0) {
+      <p class="text-xs text-muted-foreground">
+        {{ kpi().orphaned }} activity reference(s) point at case keys that no longer exist and
+        are excluded from every count above.
+      </p>
+    }
+  }
+</div>

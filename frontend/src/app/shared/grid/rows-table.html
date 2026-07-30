@@ -1,0 +1,97 @@
+@if (rows().length === 0) {
+  <div class="flex items-center justify-center py-10 text-sm text-muted-foreground">
+    No cases found for this date
+  </div>
+} @else {
+  <div class="flex flex-col h-full">
+    <div
+      class="flex items-center justify-between gap-3 px-2 py-1.5 border-b shrink-0 flex-wrap"
+    >
+      <span class="text-xs text-muted-foreground">
+        {{ rows().length }} row{{ rows().length === 1 ? '' : 's' }}
+      </span>
+      <div class="flex items-center gap-3">
+        <app-column-picker
+          [columns]="hideableCols()"
+          [overrides]="visibility.overrides()"
+          [autoHidden]="autoHidden()"
+          (setVisible)="onSetVisible($event)"
+          (setAll)="onSetAll($event)"
+          (reset)="visibility.reset()"
+        />
+        <app-empty-columns-toggle
+          [count]="emptyColumns().length"
+          [hidden]="hideEmpty()"
+          (toggled)="hideEmpty.set(!hideEmpty())"
+        />
+        <app-excel-export-button
+          [gridApi]="gridApiGetter"
+          [fileName]="exportFileName()"
+          [sheetName]="exportSheetName()"
+        />
+        <button
+          type="button"
+          (click)="collapseAll()"
+          class="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+        >
+          <ng-icon name="lucideChevronsUpDown" class="h-3 w-3" />
+          Collapse All
+        </button>
+      </div>
+    </div>
+
+    @if (selectedCount() > 0) {
+      <div
+        class="flex items-center gap-2 px-2 py-1.5 border-b shrink-0 bg-primary/5 flex-wrap"
+      >
+        <span class="text-xs font-medium text-primary shrink-0">
+          {{ selectedCount() }} selected
+        </span>
+        <select
+          (change)="stageBulkStatus($event)"
+          class="rounded border border-input bg-background px-1.5 py-0.5 text-xs outline-none focus:ring-1 focus:ring-ring cursor-pointer"
+        >
+          <option value="">Change status…</option>
+          @for (o of statusOptions; track o.value) {
+            <option [value]="o.value">{{ o.label }}</option>
+          }
+        </select>
+        <input
+          type="text"
+          [ngModel]="bulkComment()"
+          (ngModelChange)="bulkComment.set($event)"
+          (keydown)="onBulkCommentKeydown($event)"
+          placeholder="Comment all + Enter"
+          class="rounded border border-input bg-background px-1.5 py-0.5 text-xs outline-none focus:ring-1 focus:ring-ring w-44"
+        />
+        <span class="text-xs text-muted-foreground shrink-0">Posts to each selected case</span>
+        <button
+          type="button"
+          (click)="deselectAll()"
+          class="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+        >
+          Deselect
+        </button>
+      </div>
+    }
+
+    <!-- See all-cases.html: <ag-grid-angular> is the host element and must carry its
+         own size, or it stays inline and renders no rows. -->
+    <div class="ag-theme-datagrip flex-1 min-h-0">
+      <ag-grid-angular
+        class="block h-full w-full"
+        theme="legacy"
+        [rowData]="rows()"
+        [columnDefs]="colDefs()"
+        [rowHeight]="24"
+        [headerHeight]="26"
+        rowSelection="multiple"
+        [suppressMovableColumns]="true"
+        [suppressCellFocus]="true"
+        [getRowId]="getRowId"
+        (selectionChanged)="onSelectionChanged()"
+        (gridReady)="onGridReady($event)"
+      />
+    </div>
+  </div>
+}

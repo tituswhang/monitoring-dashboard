@@ -1,0 +1,97 @@
+<div class="p-6 space-y-6">
+  <header class="space-y-1">
+    <div class="flex items-center gap-2">
+      <span class="h-3 w-3 rounded-sm shrink-0" [style.background-color]="color()"></span>
+      <h1 class="text-xl font-semibold tracking-tight">{{ name() }}</h1>
+    </div>
+    @if (description(); as d) {
+      <p class="text-sm text-muted-foreground max-w-3xl">{{ d }}</p>
+    }
+    <p class="text-xs text-muted-foreground">
+      {{ items().length }} monitoring item{{ items().length === 1 ? '' : 's' }}
+    </p>
+  </header>
+
+  <div class="grid gap-4 lg:grid-cols-3">
+    <div uiCard>
+      <div uiCardHeader>
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 uiCardTitle>Open Cases by Item</h3>
+            <p class="text-sm text-muted-foreground mt-1">click a wedge to open the item</p>
+          </div>
+          <ng-icon name="lucideLayers" class="h-4 w-4 text-muted-foreground" />
+        </div>
+      </div>
+      <div uiCardContent>
+        @if (byItemSlices().length === 0) {
+          <div class="flex h-40 items-center justify-center text-sm text-muted-foreground">
+            No open cases
+          </div>
+        } @else {
+          <app-pie-chart
+            [slices]="byItemSlices()"
+            [height]="220"
+            [outerRadius]="80"
+            [clickable]="true"
+            (sliceClick)="onSliceItem($event)"
+          />
+        }
+      </div>
+    </div>
+
+    <div uiCard>
+      <div uiCardHeader>
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 uiCardTitle>Case Status</h3>
+            <p class="text-sm text-muted-foreground mt-1">latest run of each item</p>
+          </div>
+          <ng-icon name="lucideActivity" class="h-4 w-4 text-muted-foreground" />
+        </div>
+      </div>
+      <div uiCardContent>
+        @if (statusSlices().length === 0) {
+          <div class="flex h-40 items-center justify-center text-sm text-muted-foreground">
+            No cases
+          </div>
+        } @else {
+          <app-pie-chart [slices]="statusSlices()" [height]="220" [outerRadius]="80" />
+        }
+      </div>
+    </div>
+
+    <div uiCard>
+      <div uiCardHeader>
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 uiCardTitle>Case Age</h3>
+            <p class="text-sm text-muted-foreground mt-1">{{ caseAgeSubtitle() }}</p>
+          </div>
+          <ng-icon name="lucideClock" class="h-4 w-4 text-muted-foreground" />
+        </div>
+      </div>
+      <div uiCardContent>
+        @if (caseAgeSlices().length === 0) {
+          <div class="flex h-40 items-center justify-center text-sm text-muted-foreground">
+            No cases to age
+          </div>
+        } @else {
+          <app-pie-chart [slices]="caseAgeSlices()" [height]="220" [outerRadius]="80" />
+        }
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="h-[70vh] border-t">
+  <app-all-cases
+    [queries]="store.queries()"
+    [lockedCategory]="name()"
+    [embedded]="true"
+    (selectQuery)="onSelectQuery($event)"
+    (selectCategory)="onSelectCategory($event)"
+    (rowsSaved)="onRowsSaved()"
+    (openActivity)="openActivity($event)"
+  />
+</div>

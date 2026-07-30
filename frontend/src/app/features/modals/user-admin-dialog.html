@@ -1,0 +1,207 @@
+<div class="flex max-h-[85vh] flex-col">
+  <div class="flex items-center justify-between border-b px-6 py-4 shrink-0">
+    <h2 class="text-base font-semibold">Manage Users</h2>
+    <button
+      type="button"
+      (click)="ref.close()"
+      class="cursor-pointer rounded p-1 transition-colors hover:bg-accent"
+    >
+      <ng-icon name="lucideX" class="h-4 w-4" />
+    </button>
+  </div>
+
+  <div class="flex-1 overflow-y-auto px-6 py-4">
+    <form (ngSubmit)="invite()" class="space-y-3 rounded-md border bg-muted/30 p-4">
+      <p class="flex items-center gap-1.5 text-xs font-medium">
+        <ng-icon name="lucideUserPlus" class="h-3.5 w-3.5" /> Give someone access
+      </p>
+      <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div>
+          <label [class]="labelClass" for="invite-email">Email</label>
+          <input
+            id="invite-email"
+            name="email"
+            type="email"
+            [class]="fieldClass"
+            [(ngModel)]="email"
+            placeholder="jane@example.com"
+            required
+          />
+        </div>
+        <div>
+          <label [class]="labelClass" for="invite-name">
+            Name <span class="font-normal">(optional)</span>
+          </label>
+          <input
+            id="invite-name"
+            name="name"
+            [class]="fieldClass"
+            [(ngModel)]="name"
+            placeholder="Jane Doe"
+          />
+        </div>
+        <div>
+          <label [class]="labelClass" for="invite-role">Role</label>
+          <select
+            id="invite-role"
+            name="inviteRole"
+            [class]="fieldClass + ' cursor-pointer'"
+            [(ngModel)]="inviteRole"
+          >
+            @for (r of roles; track r.value) {
+              <option [value]="r.value">{{ r.label }}</option>
+            }
+          </select>
+        </div>
+      </div>
+      <p class="text-xs text-muted-foreground">
+        {{ roleHint() }}. No account is created — they sign up themselves, and this role is
+        waiting for them when they do.
+      </p>
+      <div class="flex justify-end">
+        <button
+          type="submit"
+          [disabled]="inviting() || !email.trim()"
+          class="cursor-pointer rounded-md bg-primary px-4 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {{ inviting() ? 'Granting…' : 'Grant access' }}
+        </button>
+      </div>
+    </form>
+
+    @if (invited(); as inv) {
+      <div class="mt-3 rounded-md border border-emerald-600/30 bg-emerald-600/5 p-3">
+        <p class="flex items-start gap-1 text-xs text-emerald-600">
+          <ng-icon name="lucideCircleCheckBig" class="mt-0.5 h-3 w-3 shrink-0" />
+          {{
+            inv.alreadyInvited
+              ? inv.email + ' already had access — role set to ' + inv.roles.join(', ') + '.'
+              : inv.email + ' will be ' + inv.roles.join(', ') + ' as soon as they sign in.'
+          }}
+        </p>
+        <p class="mt-2 mb-1 text-xs font-medium">Send them this link:</p>
+        <div class="flex items-center gap-2">
+          <code
+            class="flex-1 truncate rounded border bg-background px-2 py-1 text-xs"
+            [title]="inv.inviteUrl"
+            >{{ inv.inviteUrl }}</code
+          >
+          <button
+            type="button"
+            (click)="copy(inv.inviteUrl)"
+            class="flex shrink-0 cursor-pointer items-center gap-1 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors hover:bg-accent"
+          >
+            <ng-icon name="lucideCopy" class="h-3 w-3" />{{ copied() ? 'Copied' : 'Copy' }}
+          </button>
+        </div>
+      </div>
+    }
+
+    @if (error(); as err) {
+      <p class="mt-3 flex items-start gap-1 text-xs text-destructive">
+        <ng-icon name="lucideCircleAlert" class="mt-0.5 h-3 w-3 shrink-0" />{{ err }}
+      </p>
+    }
+    @if (success(); as msg) {
+      <p class="mt-3 flex items-start gap-1 text-xs text-emerald-600">
+        <ng-icon name="lucideCircleCheckBig" class="mt-0.5 h-3 w-3 shrink-0" />{{ msg }}
+      </p>
+    }
+
+    <div class="mt-5">
+      <p class="mb-2 text-xs font-medium">Existing users</p>
+      @if (loading()) {
+        <div class="flex justify-center py-8">
+          <ng-icon name="lucideLoaderCircle" class="h-5 w-5 animate-spin text-muted-foreground" />
+        </div>
+      } @else {
+        <div class="overflow-x-auto rounded-md border">
+          <table class="w-full text-sm">
+            <thead class="bg-muted/50 text-xs text-muted-foreground">
+              <tr>
+                <th class="px-3 py-2 text-left font-medium">User</th>
+                <th class="px-3 py-2 text-left font-medium">Role</th>
+                <th class="px-3 py-2 text-right font-medium">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (user of users(); track user.email) {
+                <tr class="border-t">
+                  <td class="px-3 py-2">
+                    <div class="font-medium">{{ user.name ?? user.email }}</div>
+                    @if (user.name) {
+                      <div class="text-xs text-muted-foreground">{{ user.email }}</div>
+                    }
+                    @if (!user.active) {
+                      <span class="text-xs text-muted-foreground">Deactivated</span>
+                    }
+                    @if (user.active && !user.lastLoginAt && !user.bootstrapAdmin) {
+                      <span class="text-xs text-amber-600">Invited — hasn't signed in yet</span>
+                    }
+                    @if (isSelf(user)) {
+                      <span class="ml-1 text-xs text-muted-foreground">(you)</span>
+                    }
+                  </td>
+                  <td class="px-3 py-2">
+                    @if (user.bootstrapAdmin) {
+                      <span
+                        class="flex items-center gap-1 text-xs text-muted-foreground"
+                        title="Admin by configuration (AUTH_BOOTSTRAP_ADMINS) — change it there, not here"
+                      >
+                        <ng-icon name="lucideLock" class="h-3 w-3" /> Admin (config)
+                      </span>
+                    } @else {
+                      <select
+                        [class]="fieldClass + ' w-auto cursor-pointer py-1'"
+                        [value]="roleOf(user)"
+                        [disabled]="isBusy(user) || !user.active"
+                        (change)="changeRole(user, $event)"
+                      >
+                        @for (r of roles; track r.value) {
+                          <option [value]="r.value" [selected]="r.value === roleOf(user)">
+                            {{ r.label }}
+                          </option>
+                        }
+                      </select>
+                    }
+                  </td>
+                  <td class="px-3 py-2 text-right">
+                    @if (!user.bootstrapAdmin && user.active) {
+                      <button
+                        type="button"
+                        (click)="deactivate(user)"
+                        [disabled]="isBusy(user)"
+                        class="cursor-pointer rounded-md border px-2.5 py-1 text-xs font-medium transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {{ isBusy(user) ? '…' : 'Deactivate' }}
+                      </button>
+                    }
+                  </td>
+                </tr>
+              } @empty {
+                <tr>
+                  <td colspan="3" class="px-3 py-6 text-center text-xs text-muted-foreground">
+                    No users yet. Invite someone above.
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+      <p class="mt-2 text-xs text-muted-foreground">
+        Role changes take effect within a couple of minutes — the user does not need to sign out.
+      </p>
+    </div>
+  </div>
+
+  <div class="flex justify-end border-t px-6 py-4 shrink-0">
+    <button
+      type="button"
+      (click)="ref.close()"
+      class="cursor-pointer rounded-md border px-4 py-1.5 text-sm font-medium transition-colors hover:bg-accent"
+    >
+      Close
+    </button>
+  </div>
+</div>

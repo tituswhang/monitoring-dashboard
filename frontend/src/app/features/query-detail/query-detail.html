@@ -1,0 +1,265 @@
+@if (query(); as q) {
+  <div class="flex flex-col h-full overflow-hidden">
+    <!-- ── Header ────────────────────────────────────────────────────────── -->
+    <div class="px-8 pt-8 pb-4 shrink-0">
+      <div class="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <div class="flex items-center gap-2">
+            <button
+              type="button"
+              (click)="goHome()"
+              title="Back to overview"
+              class="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors cursor-pointer"
+            >
+              <ng-icon name="lucideArrowLeft" class="h-4 w-4" />
+            </button>
+            <span class="w-3 h-3 rounded-sm shrink-0" [style.background-color]="color()"></span>
+            <h1 class="text-xl font-bold">{{ q.title }}</h1>
+            @if (q.activeYn === 'N') {
+              <span uiBadge variant="secondary">Inactive</span>
+            }
+          </div>
+          @if (q.description) {
+            <p class="mt-1 text-sm text-muted-foreground max-w-3xl">{{ q.description }}</p>
+          }
+          <div
+            class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground"
+          >
+            @if (q.ownerName) {
+              <span>Owner: <span class="text-foreground">{{ q.ownerName }}</span></span>
+            }
+            @if (q.queryInterval) {
+              <span class="flex items-center gap-1">
+                <ng-icon name="lucideClock" class="h-3 w-3" />{{ q.queryInterval }}
+              </span>
+            }
+            @if (q.dbType) {
+              <span uiBadge variant="outline" class="text-xs">{{ q.dbType }}</span>
+            }
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 shrink-0 flex-wrap">
+          <!-- Filters *recorded* runs. Distinct from the scan range inside Run. -->
+          <select
+            [value]="selectedResult()?.runDate ?? ''"
+            (change)="onDateChange($event)"
+            class="rounded-md border border-input bg-background px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-ring cursor-pointer"
+          >
+            @if (availableDates().length === 0) {
+              <option value="">No runs</option>
+            }
+            @for (d of availableDates(); track d) {
+              <option [value]="d">{{ d }}</option>
+            }
+          </select>
+
+          <button
+            type="button"
+            (click)="openEdit()"
+            class="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer hover:bg-accent"
+          >
+            <ng-icon name="lucidePencil" class="h-3.5 w-3.5" />Edit
+          </button>
+          <button
+            type="button"
+            (click)="openHistory()"
+            class="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer hover:bg-accent"
+          >
+            <ng-icon name="lucideHistory" class="h-3.5 w-3.5" />History
+          </button>
+
+          @if (q.dateRangeSupported) {
+            <app-run-scan-control
+              [window]="scanWindow()"
+              [running]="triggering()"
+              (windowChange)="scanWindow.set($event)"
+              (run)="run()"
+            />
+          } @else {
+            <!-- No window to offer: this item still carries a literal date floor in its
+                 SQL and ignores the range parameters entirely. -->
+            <button
+              type="button"
+              (click)="run()"
+              [disabled]="triggering()"
+              class="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <ng-icon name="lucideZap" class="h-3.5 w-3.5" />
+              {{ triggering() ? 'Running…' : 'Run Now' }}
+            </button>
+          }
+
+          <button
+            type="button"
+            (click)="openDelete()"
+            class="flex items-center gap-1.5 rounded-md border border-destructive/40 px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer text-destructive hover:bg-destructive/10"
+          >
+            <ng-icon name="lucideTrash2" class="h-3.5 w-3.5" />Delete
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Pies ──────────────────────────────────────────────────────────── -->
+    <div class="px-8 pb-6 shrink-0">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div uiCard>
+          <div uiCardHeader>
+            <h3 uiCardTitle>Case Status Breakdown</h3>
+            <p class="text-sm text-muted-foreground mt-1">
+              {{ statusSubtitle() }}<span class="text-muted-foreground">{{ scanRangeNote() }}</span>
+            </p>
+          </div>
+          <div uiCardContent>
+            @if (loadingResults()) {
+              <div class="flex h-36 items-center justify-center">
+                <div uiSkeleton class="h-24 w-24 rounded-full"></div>
+              </div>
+            } @else if (statusSlices().length === 0) {
+              <div class="flex h-36 items-center justify-center text-sm text-muted-foreground">
+                {{ emptyCasesText() }}
+              </div>
+            } @else {
+              <app-pie-chart
+                [slices]="statusSlices()"
+                [height]="160"
+                [outerRadius]="60"
+                noun="row"
+              />
+            }
+          </div>
+        </div>
+
+        <div uiCard>
+          <div uiCardHeader>
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 uiCardTitle>Case Age</h3>
+                <p class="text-sm text-muted-foreground mt-1">{{ caseAgeSubtitle() }}</p>
+              </div>
+              <ng-icon name="lucideClock" class="h-4 w-4 text-muted-foreground" />
+            </div>
+          </div>
+          <div uiCardContent>
+            @if (loadingResults() || store.loadingCaseRows()) {
+              <div class="flex h-36 items-center justify-center">
+                <div uiSkeleton class="h-24 w-24 rounded-full"></div>
+              </div>
+            } @else if (caseAgeSlices().length === 0) {
+              <div class="flex h-36 items-center justify-center text-sm text-muted-foreground">
+                {{ emptyCasesText() }}
+              </div>
+            } @else {
+              <app-pie-chart [slices]="caseAgeSlices()" [height]="160" [outerRadius]="60" />
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Run detail + grid ─────────────────────────────────────────────── -->
+    @if (selectedResult(); as r) {
+      <div class="flex flex-col flex-1 min-h-0 overflow-hidden px-8 pb-8 gap-3">
+        <div class="shrink-0 flex items-center justify-between gap-4 flex-wrap">
+          <div>
+            <h2 class="font-semibold text-base">{{ fullDate(r.runDate) }}</h2>
+            <div class="mt-1 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+              @switch (r.resultStatus) {
+                @case ('SUCCESS') {
+                  <span uiBadge variant="success" class="gap-1">
+                    <ng-icon name="lucideCircleCheckBig" class="h-3 w-3" />Success
+                  </span>
+                }
+                @case ('FAIL') {
+                  <span uiBadge variant="destructive" class="gap-1">
+                    <ng-icon name="lucideCircleAlert" class="h-3 w-3" />Fail
+                  </span>
+                }
+                @default {
+                  <span uiBadge variant="secondary" class="gap-1">
+                    <ng-icon name="lucideSkipForward" class="h-3 w-3" />Skipped
+                  </span>
+                }
+              }
+              <span>
+                <span class="font-medium text-foreground">{{ r.resultCount }}</span>
+                {{ r.resultCount === 1 ? 'case' : 'cases' }}
+              </span>
+              @if (r.suppressedCount > 0) {
+                <span
+                  title="Cases this query still matched, but that were already marked Done. They stay in the history of the runs before you closed them; this run no longer tracks or alerts on them."
+                >
+                  {{ r.suppressedCount }} done, hidden
+                </span>
+              }
+              @if (r.executionMs != null) {
+                <span>{{ r.executionMs }} ms</span>
+              }
+              @if (r.triggeredAlertYn === 'Y') {
+                <span uiBadge variant="warning">Alert sent</span>
+              }
+            </div>
+          </div>
+
+          <button
+            type="button"
+            (click)="save()"
+            [disabled]="draftCount() === 0 || savingRows()"
+            class="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors"
+            [class]="
+              draftCount() > 0 && !savingRows()
+                ? 'cursor-pointer hover:bg-accent'
+                : 'cursor-not-allowed opacity-50'
+            "
+          >
+            <ng-icon name="lucideSave" class="h-3.5 w-3.5" />
+            {{ savingRows() ? 'Saving…' : 'Save Changes' }}
+          </button>
+        </div>
+
+        @if (runError(); as err) {
+          <app-run-error [message]="err" />
+        }
+
+        @if (r.resultStatus === 'FAIL' && r.errorMessage) {
+          <app-error-panel
+            [message]="r.errorMessage"
+            [detail]="r.errorDetail"
+            [pastUnresolved]="r.pastUnresolvedYn === 'Y'"
+          />
+        }
+
+        <div class="flex-1 min-h-0 rounded-md border overflow-hidden">
+          <app-rows-table
+            [rows]="displayRows()"
+            [dbType]="q.dbType"
+            [msorId]="q.msorId"
+            [firstSeenByKey]="store.firstSeenByKey()"
+            [windowBegin]="r.beginDate"
+            [exportFileName]="q.title + ' - ' + r.runDate"
+            [exportSheetName]="q.sheetName || q.title"
+            (updateRow)="onUpdateRow($event)"
+            (bulkUpdate)="onBulkUpdate($event)"
+            (openActivity)="openActivity($event)"
+          />
+        </div>
+      </div>
+    } @else {
+      <div
+        class="flex flex-1 flex-col items-center justify-center gap-3 px-8 pb-8 text-sm text-muted-foreground"
+      >
+        @if (runError(); as err) {
+          <div class="max-w-md">
+            <app-run-error [message]="err" />
+          </div>
+        }
+        <span>{{ loadingResults() ? 'Loading runs…' : 'Select a run date to view its cases' }}</span>
+      </div>
+    }
+  </div>
+} @else if (!store.loadingQueries()) {
+  <div class="p-6">
+    <p class="text-sm text-muted-foreground">No monitoring item with id {{ id() }}.</p>
+  </div>
+}
