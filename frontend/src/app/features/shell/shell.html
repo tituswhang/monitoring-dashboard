@@ -159,12 +159,14 @@
                   class="flex flex-1 items-center gap-1.5 py-1 min-w-0 cursor-pointer text-left"
                 >
                   <span
-                    class="h-2 w-2 rounded-sm shrink-0"
+                    class="h-2.5 w-2.5 rounded-sm shrink-0"
                     [style.background-color]="categoryColor(group.category)"
                   ></span>
+                  <!-- A category heads the items beneath it, so it reads larger than
+                       they do: text-base semibold against their text-sm. -->
                   <span
-                    class="text-xs font-medium truncate"
-                    [class]="catActive.isActive ? 'text-foreground' : 'text-muted-foreground'"
+                    class="text-base font-semibold truncate"
+                    [class]="catActive.isActive ? 'text-foreground' : 'text-foreground/80'"
                   >
                     {{ group.category }}
                   </span>
