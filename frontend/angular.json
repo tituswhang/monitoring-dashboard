@@ -6,7 +6,7 @@
   },
   "newProjectRoot": "projects",
   "projects": {
-    "monitoring-dashboard": {
+    "datawatch": {
       "projectType": "application",
       "schematics": {},
       "root": "",
@@ -65,10 +65,10 @@
           "builder": "@angular/build:dev-server",
           "configurations": {
             "production": {
-              "buildTarget": "monitoring-dashboard:build:production"
+              "buildTarget": "datawatch:build:production"
             },
             "development": {
-              "buildTarget": "monitoring-dashboard:build:development"
+              "buildTarget": "datawatch:build:development"
             }
           },
           "defaultConfiguration": "development"

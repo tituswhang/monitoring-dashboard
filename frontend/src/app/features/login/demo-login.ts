@@ -14,7 +14,7 @@ import { AuthService } from '../../core/auth.service';
         class="w-full max-w-sm space-y-6 p-8 rounded-2xl border border-border bg-card shadow-sm"
       >
         <div class="space-y-2 text-center">
-          <h1 class="text-2xl font-semibold tracking-tight">Monitoring Dashboard</h1>
+          <h1 class="text-2xl font-semibold tracking-tight">DataWatch</h1>
           <p class="text-sm text-muted-foreground">Sign in to access the dashboard</p>
         </div>
 

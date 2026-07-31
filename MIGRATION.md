@@ -1,6 +1,6 @@
 # React → Angular Migration Plan
 
-Refactor of the `monitoring-dashboard` SPA from React 19 + Vite to Angular 21.
+Refactor of the `datawatch` SPA from React 19 + Vite to Angular 21.
 
 > **Status: complete.** Phases 0–8 done. `frontend/` is now the Angular app; the React tree
 > was removed in Phase 8 and remains recoverable from git history at `b155fa2`.
@@ -450,7 +450,7 @@ It also moves into the ECharts config in Phase 3, so it may not survive as a com
 ### Phase 8 — Deploy & cleanup
 
 - [x] Delete the React tree and its dependencies — `frontend-ng/` renamed to `frontend/`
-- [x] Update `netlify.toml` — publish dir `dist/monitoring-dashboard/browser` **and** the
+- [x] Update `netlify.toml` — publish dir `dist/datawatch/browser` **and** the
       catch-all redirect (risk #3)
 - [x] Verify the demo build end-to-end
 - [x] Update `README.md` — overview, tech-stack table, project structure, frontend setup,
@@ -501,7 +501,7 @@ Query-string routing means every URL currently resolves to `/`. Real paths like 
 [build]
   base    = "frontend"
   command = "npm run build"
-  publish = "dist/monitoring-dashboard/browser"   # was: dist
+  publish = "dist/datawatch/browser"   # was: dist
 
 [[redirects]]
   from   = "/*"

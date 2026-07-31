@@ -1,5 +1,5 @@
 {
-  "name": "monitoring-dashboard",
+  "name": "datawatch",
   "version": "0.1.0",
   "scripts": {
     "ng": "ng",

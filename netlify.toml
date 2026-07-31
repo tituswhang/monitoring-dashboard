@@ -2,7 +2,7 @@
   base    = "frontend"
   command = "npm run build"
   # Angular emits to dist/<project>/browser, not dist/ as Vite did.
-  publish = "dist/monitoring-dashboard/browser"
+  publish = "dist/datawatch/browser"
 
 # The SPA now uses real paths (/query/42, /category/Reward) instead of query strings.
 # Without this, any deep link or refresh away from "/" would 404 — Netlify would look for

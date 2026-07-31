@@ -145,8 +145,8 @@ sonarqube {
         property 'sonar.sourceEncoding', 'UTF-8'
         property 'sonar.exclusions', jacocoCoverageExclusion
         property 'sonar.coverage.exclusions', jacocoCoverageExclusion
-        property 'sonar.projectKey', "monitoring-dashboard"
-        property 'sonar.projectName', "monitoring-dashboard"
+        property 'sonar.projectKey', "datawatch"
+        property 'sonar.projectName', "datawatch"
         property 'sonar.login', System.getenv('SONAR_TOKEN') ?: ''
         property 'sonar.host.url', System.getenv('SONAR_HOST_URL') ?: 'http://localhost:9000'
     }

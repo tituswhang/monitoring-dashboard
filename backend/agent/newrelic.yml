@@ -10,7 +10,7 @@ common: &default_settings
 
   agent_enabled: NR_ENABLE
 
-  app_name: monitoring-dashboard
+  app_name: datawatch
 
   high_security: false
 
@@ -85,16 +85,16 @@ common: &default_settings
 
 dev:
   <<: *default_settings
-  app_name: monitoring-dashboard (DEV)
+  app_name: datawatch (DEV)
 
 qa:
   <<: *default_settings
-  app_name: monitoring-dashboard (QA)
+  app_name: datawatch (QA)
 
 stg:
   <<: *default_settings
-  app_name: monitoring-dashboard (STG)
+  app_name: datawatch (STG)
 
 prod:
   <<: *default_settings
-  app_name: monitoring-dashboard (PRD)
+  app_name: datawatch (PRD)

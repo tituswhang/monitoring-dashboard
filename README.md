@@ -1,4 +1,4 @@
-# Monitoring Dashboard
+# DataWatch: E-Commerce Dashboard
 
 A full-stack Spring Boot + Angular application for DB-driven SQL monitoring. It executes SQL queries against target databases on a configurable schedule, persists results as trackable *cases*, and publishes alert events when issues are detected.
 
@@ -59,7 +59,7 @@ All monitoring items and schedules are **database-driven** — no code changes r
 ## Project Structure
 
 ```
-monitoring-dashboard/
+datawatch/
 ├── backend/                                           # Spring Boot application
 │   ├── src/main/
 │   │   ├── java/.../monitoring/
@@ -255,7 +255,7 @@ http://localhost:8080/swagger-ui.html
 
 #### 1. Clone & Navigate
 ```bash
-cd monitoring-dashboard/backend
+cd datawatch/backend
 ```
 
 #### 2. Local Development (with Flyway migrations)
@@ -406,7 +406,7 @@ The frontend is an Angular SPA and can be deployed standalone to Netlify (the AP
 Repo-root config files:
 
 - **`netlify.toml`** — sets `base = "frontend"`, build command, publish dir
-  (`dist/monitoring-dashboard/browser`, relative to base), and a catch-all redirect to
+  (`dist/datawatch/browser`, relative to base), and a catch-all redirect to
   `index.html`. The redirect is required: the app routes on real paths (`/query/42`), so
   without it every deep link and refresh would 404.
 - **`.nvmrc`** — pins Node 22. Angular 21 requires `^20.19.0 || ^22.12.0 || >=24.0.0`; a bare
@@ -435,7 +435,7 @@ app knows the difference.
 
 ```bash
 # Build image
-docker build -t monitoring-dashboard:latest ./backend
+docker build -t datawatch:latest ./backend
 
 # Run container
 docker run -d \
@@ -449,8 +449,8 @@ docker run -d \
   -e DB1_PASSWORD=secret \
   -e COMMUNICATION_EVENTS_QUEUE_URL=https://sqs.us-east-1.amazonaws.com/... \
   -p 8080:8080 \
-  --name monitoring-dashboard \
-  monitoring-dashboard:latest
+  --name datawatch \
+  datawatch:latest
 ```
 
 ### Kubernetes

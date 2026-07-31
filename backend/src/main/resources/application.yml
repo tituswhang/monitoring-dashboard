@@ -10,7 +10,7 @@ spring:
       "PRD": "PRD_CFG"
     active:
   application:
-    name: monitoring-dashboard
+    name: datawatch
   cloud:
     aws:
       region:
