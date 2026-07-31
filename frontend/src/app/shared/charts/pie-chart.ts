@@ -73,11 +73,21 @@ export class PieChartComponent {
     return this.theme.cssVar('--color-foreground') || '#000';
   });
 
+  /** Used for the legend's paging arrows and counter, which should recede. */
+  private readonly mutedColor = computed(() => {
+    this.theme.darkMode();
+    return this.theme.cssVar('--color-muted-foreground') || '#888';
+  });
+
   protected readonly options = computed<EChartsOption>(() => {
     const slices = this.slices();
-    const radius = this.outerRadius();
     const withLegend = this.showLegend();
     const noun = this.noun();
+    const { radius, centerY, legendHeight } = pieGeometry(
+      this.height(),
+      this.outerRadius(),
+      withLegend,
+    );
 
     return {
       // The wrapper Card supplies the background; a painted one would square off
@@ -109,19 +119,31 @@ export class PieChartComponent {
       },
       legend: withLegend
         ? {
+            // `scroll` is what stops a long legend from colliding with the pie.
+            // ECharts draws the legend *inside* the canvas — unlike recharts, which
+            // rendered it as HTML below the chart — so an unbounded one wraps upward
+            // over the wedges. Scrolling confines it to the reserved band and pages
+            // the overflow instead.
+            type: 'scroll',
             bottom: 0,
+            height: legendHeight - LEGEND_PADDING,
             icon: 'rect',
             itemWidth: 8,
             itemHeight: 8,
+            itemGap: 10,
             textStyle: { fontSize: 12, color: this.legendColor() },
+            pageIconSize: 9,
+            pageIconColor: this.legendColor(),
+            pageIconInactiveColor: this.mutedColor(),
+            pageTextStyle: { fontSize: 11, color: this.mutedColor() },
           }
         : undefined,
       series: [
         {
           type: 'pie',
           radius,
-          // Lifted off centre when a legend occupies the bottom strip.
-          center: withLegend ? ['50%', '45%'] : ['50%', '50%'],
+          // Centred in the space the legend leaves, not in the canvas.
+          center: ['50%', centerY],
           data: slices.map((s) => ({
             name: s.name,
             value: s.value,
@@ -163,6 +185,38 @@ export class PieChartComponent {
  * rule the React `renderSliceValueLabel` applied. ECharts reports `percent` as
  * 0–100 where recharts used 0–1, hence the /100.
  */
+/** Height of the band reserved at the bottom for a scrolling legend. */
+const LEGEND_BAND = 34;
+/** Breathing room between the legend band and the wedges above it. */
+const LEGEND_PADDING = 6;
+/** Smallest pie worth drawing; below this the card should show its empty state. */
+const MIN_RADIUS = 28;
+
+export interface PieGeometry {
+  radius: number;
+  centerY: number;
+  legendHeight: number;
+}
+
+/**
+ * Splits the canvas between the pie and the legend.
+ *
+ * The legend is drawn *inside* the ECharts canvas, so it has to be given its own band
+ * and the pie sized to what remains — otherwise a chart with many wedges grows its
+ * legend upward until it sits on top of them. The caller's `outerRadius` is treated as
+ * a maximum, not a fixed size: it is honoured when there is room and shrunk when not.
+ */
+export function pieGeometry(
+  height: number,
+  outerRadius: number,
+  hasLegend: boolean,
+): PieGeometry {
+  const legendHeight = hasLegend ? LEGEND_BAND : 0;
+  const available = Math.max(0, height - legendHeight);
+  const radius = Math.max(MIN_RADIUS, Math.min(outerRadius, available / 2 - LEGEND_PADDING));
+  return { radius, centerY: available / 2, legendHeight };
+}
+
 export function sliceValueLabel(params: EchartsLabelParams, outerRadius: number): string {
   const labelRadius = outerRadius * 0.55;
   const labelWidth = String(params.value).length * 7 + 6;
