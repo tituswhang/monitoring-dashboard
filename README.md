@@ -2,7 +2,7 @@
 
 A full-stack Spring Boot + Angular application for DB-driven SQL monitoring. It executes SQL queries against target databases on a configurable schedule, persists results as trackable *cases*, and publishes alert events when issues are detected.
 
-**Live demo:** https://monitoring-dashboard-demo.netlify.app/ (frontend only, backed by in-memory mock data — sign in with any username and password)
+**Live demo:** https://datawatch-dashboard.netlify.app/ (frontend only, backed by in-memory mock data — sign in with any username and password)
 
 ## Overview
 
@@ -401,7 +401,7 @@ rather than environment variables.
 
 ### Frontend (Netlify)
 
-The frontend is an Angular SPA and can be deployed standalone to Netlify (the API client currently uses in-memory mock data, so no backend is required for a demo deploy). A live build is hosted at https://monitoring-dashboard-demo.netlify.app/.
+The frontend is an Angular SPA and can be deployed standalone to Netlify (the API client currently uses in-memory mock data, so no backend is required for a demo deploy). A live build is hosted at https://datawatch-dashboard.netlify.app/.
 
 Repo-root config files:
 
