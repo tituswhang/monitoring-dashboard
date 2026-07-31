@@ -65,14 +65,21 @@
       </button>
 
       <mat-menu #sectionMenu="matMenu" class="app-menu">
-        <button type="button" mat-menu-item (click)="createItem()">
+        <button type="button" mat-menu-item (click)="itemDialogs.openCreate()">
           <span class="flex items-center gap-2 text-xs">
             <ng-icon name="lucidePlus" class="h-3.5 w-3.5" />Create New Item
           </span>
         </button>
+        <button type="button" mat-menu-item (click)="toggleSelectMode()">
+          <span class="flex items-center gap-2 text-xs">
+            <ng-icon name="lucideMousePointerClick" class="h-3.5 w-3.5" />
+            {{ selectMode() ? 'Cancel Selection' : 'Select Items' }}
+          </span>
+        </button>
         <button type="button" mat-menu-item (click)="runItems()">
           <span class="flex items-center gap-2 text-xs">
-            <ng-icon name="lucidePlay" class="h-3.5 w-3.5" />Run Items
+            <ng-icon name="lucidePlay" class="h-3.5 w-3.5" />
+            {{ checkedIds().size > 0 ? 'Run ' + checkedIds().size + ' Selected' : 'Run Items' }}
           </span>
         </button>
       </mat-menu>
@@ -114,50 +121,75 @@
         } @else {
           @for (group of groupedQueries(); track group.category) {
             <div>
-              <button
-                type="button"
-                (click)="toggleCategory(group.category)"
-                class="flex w-full items-center gap-1.5 px-2 py-1 text-left cursor-pointer group"
+              <!-- Two controls, deliberately: the chevron collapses the group, the name
+                   opens the category page. Merging them loses the only sidebar route
+                   into /category/:name. -->
+              <div
+                class="flex w-full items-center gap-1 pr-2 rounded-md transition-colors hover:bg-accent/60"
+                routerLinkActive="bg-accent"
               >
-                <ng-icon
-                  name="lucideChevronDown"
-                  class="h-3 w-3 text-muted-foreground transition-transform duration-200 shrink-0"
-                  [class.-rotate-90]="isCollapsed(group.category)"
-                />
-                <span
-                  class="h-2 w-2 rounded-sm shrink-0"
-                  [style.background-color]="categoryColor(group.category)"
-                ></span>
-                <span class="text-xs font-medium text-muted-foreground truncate">
-                  {{ group.category }}
-                </span>
-                <span class="text-xs text-muted-foreground/70 ml-auto shrink-0">
+                <button
+                  type="button"
+                  (click)="toggleCategory(group.category)"
+                  [title]="isCollapsed(group.category) ? 'Expand' : 'Collapse'"
+                  class="flex items-center px-2 py-1 cursor-pointer shrink-0"
+                >
+                  <ng-icon
+                    name="lucideChevronDown"
+                    class="h-3 w-3 text-muted-foreground transition-transform duration-200"
+                    [class.-rotate-90]="isCollapsed(group.category)"
+                  />
+                </button>
+                @if (selectMode()) {
+                  <input
+                    type="checkbox"
+                    [checked]="allChecked(group.items)"
+                    [indeterminate]="someChecked(group.items)"
+                    (change)="toggleCategoryCheck(group.items)"
+                    (click)="$event.stopPropagation()"
+                    title="Select all items in this category"
+                    class="shrink-0 cursor-pointer"
+                  />
+                }
+                <a
+                  [routerLink]="['/category', group.category]"
+                  routerLinkActive
+                  #catActive="routerLinkActive"
+                  [title]="'Open ' + group.category"
+                  class="flex flex-1 items-center gap-1.5 py-1 min-w-0 cursor-pointer text-left"
+                >
+                  <span
+                    class="h-2 w-2 rounded-sm shrink-0"
+                    [style.background-color]="categoryColor(group.category)"
+                  ></span>
+                  <span
+                    class="text-xs font-medium truncate"
+                    [class]="catActive.isActive ? 'text-foreground' : 'text-muted-foreground'"
+                  >
+                    {{ group.category }}
+                  </span>
+                </a>
+                <span class="text-xs text-muted-foreground/70 shrink-0">
                   {{ group.items.length }}
                 </span>
-              </button>
+              </div>
 
               @if (!isCollapsed(group.category)) {
                 <div class="space-y-0.5 pl-2">
                   @for (item of group.items; track item.msorId) {
-                    <a
-                      [routerLink]="['/query', item.msorId]"
-                      routerLinkActive="bg-accent text-accent-foreground font-medium"
-                      class="w-full text-left px-3 py-2 rounded-md text-sm transition-colors cursor-pointer flex items-center gap-2 text-muted-foreground hover:bg-accent/60 hover:text-foreground"
-                      [title]="item.title"
-                    >
-                      <span
-                        class="h-1.5 w-1.5 rounded-full shrink-0"
-                        [style.background-color]="queryColors().get(item.msorId)"
-                      ></span>
-                      <span class="truncate flex-1">{{ item.title }}</span>
-                      @if (item.onHoldYn === 'Y') {
-                        <ng-icon
-                          name="lucideCirclePause"
-                          class="h-3 w-3 shrink-0 text-amber-500"
-                          title="On hold"
-                        />
-                      }
-                    </a>
+                    <app-sidebar-item
+                      [query]="item"
+                      [latestResult]="store.latestMap()[item.msorId] ?? null"
+                      [color]="queryColors().get(item.msorId) ?? ''"
+                      [selectMode]="selectMode()"
+                      [checked]="checkedIds().has(item.msorId)"
+                      (toggleCheck)="toggleCheck(item.msorId)"
+                      (run)="itemDialogs.run(item)"
+                      (edit)="itemDialogs.openEdit(item)"
+                      (history)="itemDialogs.openHistory(item)"
+                      (toggleOnHold)="itemDialogs.toggleOnHold(item)"
+                      (remove)="deleteItem(item)"
+                    />
                   }
                 </div>
               }

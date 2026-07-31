@@ -25,6 +25,8 @@ import { BadgeDirective } from '../../shared/ui/badge';
 import { CARD_DIRECTIVES } from '../../shared/ui/card';
 import { ErrorPanelComponent, RunErrorComponent } from '../../shared/ui/error-panel';
 import { SkeletonDirective } from '../../shared/ui/skeleton';
+import { VerticalResizableComponent } from '../../shared/ui/vertical-resizable';
+import { InfoPopoverComponent } from '../../shared/overlays/info-popover';
 import { buildCaseAgeData, caseAgeSubtitle } from '../../shared/utils/case-age';
 import { pluralS } from '../../shared/utils/plural';
 import {
@@ -37,6 +39,7 @@ import {
 import { nyToday } from '../../shared/utils/ny-date';
 import { DialogService } from '../../shared/overlays/dialog.service';
 import { CaseDialogsService } from '../modals/case-dialogs.service';
+import { QueryDialogsService } from '../modals/query-dialogs.service';
 import { DeleteConfirmDialogComponent } from '../modals/delete-confirm-dialog';
 import {
   QueryFormDialogComponent,
@@ -51,6 +54,8 @@ import { RunScanControlComponent } from './run-scan-control';
 @Component({
   selector: 'app-query-detail',
   imports: [
+    VerticalResizableComponent,
+    InfoPopoverComponent,
     RowsTableComponent,
     PieChartComponent,
     RunScanControlComponent,
@@ -64,7 +69,8 @@ import { RunScanControlComponent } from './run-scan-control';
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: `
     :host {
-      display: block;
+      display: flex;
+      flex-direction: column;
       height: 100%;
     }
   `,
@@ -76,6 +82,7 @@ export class QueryDetailComponent {
   private readonly router = inject(Router);
   private readonly dialogs = inject(DialogService);
   private readonly caseDialogs = inject(CaseDialogsService);
+  private readonly itemDialogs = inject(QueryDialogsService);
 
   /** Existing categories, so the edit form can offer them without forcing a choice. */
   protected readonly categoryOptions = computed(() =>
@@ -318,42 +325,17 @@ export class QueryDetailComponent {
 
   protected openEdit(): void {
     const q = this.query();
-    if (!q) return;
-    const ref = this.dialogs.open<QueryFormDialogComponent, QueryFormDialogData, MonitoringQuery>(
-      QueryFormDialogComponent,
-      {
-        width: '42rem',
-        maxWidth: '95vw',
-        data: { query: q, categoryOptions: this.categoryOptions(), defaultColor: this.color() },
-      },
-    );
-    ref.afterClosed().subscribe((updated) => {
-      if (updated) void this.store.loadQueries();
-    });
+    if (q) this.itemDialogs.openEdit(q);
   }
 
   protected openHistory(): void {
     const q = this.query();
-    if (!q) return;
-    this.dialogs.open<QueryHistoryDialogComponent, QueryHistoryDialogData, void>(
-      QueryHistoryDialogComponent,
-      { width: '42rem', maxWidth: '95vw', data: { query: q, results: this.allResults() } },
-    );
+    if (q) void this.itemDialogs.openHistory(q, this.allResults());
   }
 
   protected openDelete(): void {
     const q = this.query();
-    if (!q) return;
-    const ref = this.dialogs.open<DeleteConfirmDialogComponent, MonitoringQuery, boolean>(
-      DeleteConfirmDialogComponent,
-      { width: '26rem', maxWidth: '95vw', data: q },
-    );
-    ref.afterClosed().subscribe(async (confirmed) => {
-      if (!confirmed) return;
-      await this.api.deleteQuery(q.msorId);
-      await this.store.loadQueries();
-      void this.router.navigate(['/']);
-    });
+    if (q) this.itemDialogs.openDelete(q, true);
   }
 
   protected openActivity(e: { msorId: number; caseKey: string; caseLabel: string }): void {

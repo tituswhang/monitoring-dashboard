@@ -7,8 +7,10 @@ import type { MonitoringQuery } from '../../core/models/monitoring';
 import { PieChartComponent, type PieSlice } from '../../shared/charts/pie-chart';
 import { AllCasesComponent } from '../../shared/grid/all-cases';
 import { CARD_DIRECTIVES } from '../../shared/ui/card';
-import { monthLabel } from '../../shared/utils/case-age';
-import { nyMonth } from '../../shared/utils/ny-date';
+import { VerticalResizableComponent } from '../../shared/ui/vertical-resizable';
+import { QUERY_COLORS } from '../../shared/constants';
+import { buildCaseAgeData, caseAgeSubtitle, monthLabel } from '../../shared/utils/case-age';
+import { nyMonth, nyToday } from '../../shared/utils/ny-date';
 import {
   BUCKET_UNATTENDED,
   BUCKET_UNATTRIBUTED,
@@ -20,8 +22,17 @@ import {
 /** One person's — or one bucket's — cases for a month, with All Cases locked to them. */
 @Component({
   selector: 'app-person',
-  imports: [RouterLink, NgIcon, PieChartComponent, AllCasesComponent, ...CARD_DIRECTIVES],
+  imports: [VerticalResizableComponent, RouterLink, NgIcon, PieChartComponent, AllCasesComponent, ...CARD_DIRECTIVES],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  // The split fills the routed outlet; the host has to be a full-height flex box
+  // or VerticalResizable's flex-1 panes have nothing to divide.
+  styles: `
+    :host {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+  `,
   templateUrl: './person.html',
 })
 export class PersonComponent {
@@ -93,6 +104,42 @@ export class PersonComponent {
    */
   protected readonly caseKeys = computed(() => this.subject().keys);
   protected readonly caseCount = computed(() => this.caseKeys().size);
+
+  /** The rows behind this subject's case keys — the source for the item and age pies. */
+  private readonly ownRows = computed(() => {
+    const keys = this.caseKeys();
+    return this.store.caseRows().filter((r) => keys.has(`${r.msorId}:${r.caseKey}`));
+  });
+
+  /** Their cases grouped by monitoring item; wedges drill into the item. */
+  protected readonly byItemSlices = computed<PieSlice[]>(() => {
+    const counts = new Map<number, number>();
+    for (const r of this.ownRows()) counts.set(r.msorId, (counts.get(r.msorId) ?? 0) + 1);
+    const all = this.store.queries();
+    return [...counts.entries()]
+      .map(([msorId, value]) => {
+        const q = all.find((x) => x.msorId === msorId);
+        const idx = all.findIndex((x) => x.msorId === msorId);
+        return {
+          name: q?.title ?? `Item ${msorId}`,
+          value,
+          color: q?.color ?? QUERY_COLORS[(idx < 0 ? 0 : idx) % QUERY_COLORS.length],
+          msorId,
+        };
+      })
+      .sort((a, b) => b.value - a.value);
+  });
+
+  private readonly caseAge = computed(() =>
+    buildCaseAgeData(this.ownRows(), this.store.firstSeenByKey(), nyToday()),
+  );
+
+  protected readonly caseAgeSlices = computed<PieSlice[]>(() => this.caseAge().slices);
+  protected readonly caseAgeSubtitle = computed(() => caseAgeSubtitle(this.caseAge()));
+
+  protected onSliceItem(slice: PieSlice): void {
+    if (slice.msorId != null) void this.router.navigate(['/query', slice.msorId]);
+  }
 
   protected readonly statusSlices = computed<PieSlice[]>(() => {
     const counts = this.subject().counts;

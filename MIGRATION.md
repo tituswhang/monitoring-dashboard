@@ -8,14 +8,13 @@ Refactor of the `monitoring-dashboard` SPA from React 19 + Vite to Angular 21.
 > Build 655 kB / 135 kB initial (AG Grid and ECharts lazy), 39 tests passing.
 > All package versions below were verified against the npm registry on 2026-07-30.
 >
-> **Known gaps**, tracked but not done:
+> **Feature parity: complete.** Every API method is reachable from the UI and every React
+> component has an equivalent. Verified by audit, not by memory — see §10.
+>
+> **Known gap**, tracked but not done:
 > - AG Grid's deprecated selection API (`rowSelection="multiple"`, `headerCheckboxSelection`,
 >   `checkboxSelection`) still emits warnings. Migrating changes how the selection column is
 >   generated, so it wants to be its own change.
-> - `VerticalResizable` (`DashboardPage.tsx:3880`) — the draggable split on query detail.
->   Cosmetic; query detail uses a fixed layout.
-> - `InfoPopover` (`:550`) — item and category descriptions are rendered inline as text
->   instead. Hover descriptions in the grid use `MatTooltip`.
 
 ---
 
@@ -604,3 +603,52 @@ decision documented in the source:
 - **Phases 5 and 7 carry the genuine unknowns** (risks #1 and #2). Consider spiking
   `DataGripSetFilter` and one ECharts pie early, out of order, to retire both risks before
   committing to the full port.
+
+---
+
+## 10. Parity audit
+
+Three gaps were found only because someone opened the app, not because a test failed. The
+lesson generalises: **a passing suite says nothing about whether a feature is reachable.**
+
+| Gap | How it presented | Why tests missed it |
+|---|---|---|
+| Category pages orphaned | Route, component, and pies all worked — nothing linked to them | Nothing asserts a route is reachable |
+| Home missing the by-category pie | Two pies instead of three; the click-to-drill route into categories was absent | The pie that *was* there rendered fine |
+| Sidebar reduced to plain links | No per-item ⋯ menu, no select mode, no on-hold | Links worked; the missing menu had no test to fail |
+
+The audit that produced the definitive list, worth re-running after any large change:
+
+```bash
+# 1. Any service method the UI can no longer reach
+for fn in fetchQueries fetchResults triggerRun updateQuery createQuery deleteQuery \
+          setOnHold fetchAllResultRows fetchCaseWorkload updateRow fetchCaseActivity \
+          addCaseComment fetchUsers inviteUser updateUserRoles deactivateUser; do
+  n=$(grep -rl "\.$fn(" src/app/features src/app/shared src/app/core/dashboard-store.ts | wc -l)
+  [ "$n" -eq 0 ] && echo "UNREACHABLE: $fn"
+done
+
+# 2. Any route with no inbound link
+grep -rn "routerLink\|router.navigate" src/app --include='*.ts' --include='*.html'
+```
+
+`setOnHold` was the one method the first run flagged — defined, tested by nothing, and
+callable from nowhere in the UI. It is now on the sidebar item's ⋯ menu.
+
+### Component map
+
+React names did not all survive; these are the same features under different names.
+
+| React | Angular |
+|---|---|
+| `AllCasesPage` | `AllCasesComponent` (`shared/grid/all-cases.ts`) |
+| `EditQueryModal` + `CreateQueryModal` | `QueryFormDialogComponent` (one component, `isEdit` mode) |
+| `StatusSelectCell` | `StatusCellComponent` |
+| `IncrementIdLinkCell` | `IncrementIdCellComponent` |
+| `MonthSelector` | inlined in `kpi.html` |
+| `CategoryPieCard`, `PersonPieCard`, `CaseAgePieCard` | one `PieChartComponent` inside a `uiCard` |
+| `HoverDescription` | `matTooltip` |
+| `MiniCalendar` + `DateRangePicker` | `mat-date-range-picker` |
+
+Pies per view now match the React original: home 3, category 3, person 3, KPI one per
+person card, query detail 2.

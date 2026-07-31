@@ -10,15 +10,13 @@ import { MonitoringService } from '../../core/monitoring.service';
 import { DialogService } from '../../shared/overlays/dialog.service';
 import { SkeletonDirective } from '../../shared/ui/skeleton';
 import {
-  QueryFormDialogComponent,
-  type QueryFormDialogData,
-} from '../modals/query-form-dialog';
-import {
   RunSelectionDialogComponent,
   type RunSelectionDialogData,
 } from '../modals/run-selection-dialog';
+import { QueryDialogsService } from '../modals/query-dialogs.service';
 import { UserAdminDialogComponent } from '../modals/user-admin-dialog';
 import { GlobalSearchComponent } from './global-search';
+import { SidebarItemComponent } from './sidebar-item';
 import type { MonitoringQuery } from '../../core/models/monitoring';
 import { categoryColor, groupByCategory } from '../../shared/utils/category';
 import { nyMonth } from '../../shared/utils/ny-date';
@@ -35,6 +33,7 @@ import { QUERY_COLORS } from '../../shared/constants';
     NgIcon,
     SkeletonDirective,
     GlobalSearchComponent,
+    SidebarItemComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './shell.html',
@@ -43,6 +42,7 @@ export class ShellComponent {
   private readonly auth = inject(AuthService);
   private readonly api = inject(MonitoringService);
   private readonly dialogs = inject(DialogService);
+  protected readonly itemDialogs = inject(QueryDialogsService);
   private readonly router = inject(Router);
   protected readonly theme = inject(ThemeService);
   protected readonly store = inject(DashboardStore);
@@ -51,6 +51,10 @@ export class ShellComponent {
   protected readonly itemsOpen = signal(true);
   protected readonly sidebarSearch = signal('');
   protected readonly collapsedCategories = signal<ReadonlySet<string>>(new Set());
+
+  /** Checkboxes stay hidden until select mode is on, as in the React sidebar. */
+  protected readonly selectMode = signal(false);
+  protected readonly checkedIds = signal<ReadonlySet<number>>(new Set());
 
   /** Only admins may manage users. Gating on the role, not merely on being signed in. */
   protected readonly canManageUsers = computed(
@@ -120,30 +124,51 @@ export class ShellComponent {
     this.sidebarSearch.set('');
   }
 
+  /** Leaving select mode drops the selection — a hidden one would surprise the next run. */
+  protected toggleSelectMode(): void {
+    this.selectMode.update((v) => !v);
+    if (!this.selectMode()) this.checkedIds.set(new Set());
+  }
+
+  protected toggleCheck(id: number): void {
+    this.checkedIds.update((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  protected allChecked(items: MonitoringQuery[]): boolean {
+    return items.length > 0 && items.every((q) => this.checkedIds().has(q.msorId));
+  }
+
+  protected someChecked(items: MonitoringQuery[]): boolean {
+    return !this.allChecked(items) && items.some((q) => this.checkedIds().has(q.msorId));
+  }
+
+  protected toggleCategoryCheck(items: MonitoringQuery[]): void {
+    const turnOn = !this.allChecked(items);
+    this.checkedIds.update((prev) => {
+      const next = new Set(prev);
+      for (const q of items) {
+        if (turnOn) next.add(q.msorId);
+        else next.delete(q.msorId);
+      }
+      return next;
+    });
+  }
+
+  /** Deleting the item currently open must also leave its route. */
+  protected deleteItem(item: MonitoringQuery): void {
+    const onIt = this.router.url.startsWith(`/query/${item.msorId}`);
+    this.itemDialogs.openDelete(item, onIt);
+  }
+
   protected openQuery(q: MonitoringQuery): void {
     void this.router.navigate(['/query', q.msorId]);
   }
 
-  protected createItem(): void {
-    const ref = this.dialogs.open<QueryFormDialogComponent, QueryFormDialogData, MonitoringQuery>(
-      QueryFormDialogComponent,
-      {
-        width: '42rem',
-        maxWidth: '95vw',
-        data: {
-          categoryOptions: [
-            ...new Set(this.store.queries().map((q) => q.category).filter(Boolean)),
-          ].sort(),
-          defaultColor: QUERY_COLORS[this.store.queries().length % QUERY_COLORS.length],
-        },
-      },
-    );
-    ref.afterClosed().subscribe(async (created) => {
-      if (!created) return;
-      await this.store.loadQueries();
-      void this.router.navigate(['/query', created.msorId]);
-    });
-  }
 
   protected runItems(): void {
     const ref = this.dialogs.open<RunSelectionDialogComponent, RunSelectionDialogData, number[]>(
@@ -151,7 +176,7 @@ export class ShellComponent {
       {
         width: '28rem',
         maxWidth: '95vw',
-        data: { queries: this.store.queries(), initialSelected: new Set<number>() },
+        data: { queries: this.store.queries(), initialSelected: this.checkedIds() },
       },
     );
     ref.afterClosed().subscribe(async (ids) => {

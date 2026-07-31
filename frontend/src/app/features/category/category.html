@@ -1,17 +1,21 @@
-<div class="p-6 space-y-6">
+<app-vertical-resizable storageKey="split:category:v3" [defaultTopHeight]="372">
+<div header class="px-8 pt-8 pb-4">
   <header class="space-y-1">
     <div class="flex items-center gap-2">
       <span class="h-3 w-3 rounded-sm shrink-0" [style.background-color]="color()"></span>
       <h1 class="text-xl font-semibold tracking-tight">{{ name() }}</h1>
+      @if (description(); as d) {
+        <app-info-popover [text]="d" />
+      }
     </div>
-    @if (description(); as d) {
-      <p class="text-sm text-muted-foreground max-w-3xl">{{ d }}</p>
-    }
     <p class="text-xs text-muted-foreground">
       {{ items().length }} monitoring item{{ items().length === 1 ? '' : 's' }}
     </p>
   </header>
 
+</div>
+
+<div top class="px-8 pt-4 pb-6">
   <div class="grid gap-4 lg:grid-cols-3">
     <div uiCard>
       <div uiCardHeader>
@@ -84,7 +88,7 @@
   </div>
 </div>
 
-<div class="h-[70vh] border-t">
+<div bottom class="h-full">
   <app-all-cases
     [queries]="store.queries()"
     [lockedCategory]="name()"
@@ -95,3 +99,4 @@
     (openActivity)="openActivity($event)"
   />
 </div>
+</app-vertical-resizable>

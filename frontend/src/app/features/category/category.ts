@@ -8,6 +8,8 @@ import { PieChartComponent, type PieSlice } from '../../shared/charts/pie-chart'
 import { AllCasesComponent } from '../../shared/grid/all-cases';
 import { QUERY_COLORS, ROW_STATUS_COLORS } from '../../shared/constants';
 import { CARD_DIRECTIVES } from '../../shared/ui/card';
+import { VerticalResizableComponent } from '../../shared/ui/vertical-resizable';
+import { InfoPopoverComponent } from '../../shared/overlays/info-popover';
 import { categoryColor, categoryDescription } from '../../shared/utils/category';
 import { buildCaseAgeData, caseAgeSubtitle } from '../../shared/utils/case-age';
 import { nyToday } from '../../shared/utils/ny-date';
@@ -18,8 +20,17 @@ import { nyToday } from '../../shared/utils/ny-date';
  */
 @Component({
   selector: 'app-category',
-  imports: [PieChartComponent, AllCasesComponent, NgIcon, ...CARD_DIRECTIVES],
+  imports: [VerticalResizableComponent, InfoPopoverComponent, PieChartComponent, AllCasesComponent, NgIcon, ...CARD_DIRECTIVES],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  // The split fills the routed outlet; the host has to be a full-height flex box
+  // or VerticalResizable's flex-1 panes have nothing to divide.
+  styles: `
+    :host {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+  `,
   templateUrl: './category.html',
 })
 export class CategoryComponent {

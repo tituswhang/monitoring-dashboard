@@ -18,6 +18,7 @@ import { MonitoringService } from '../../core/monitoring.service';
 import type { AllCasesRow, MonitoringQuery, RowStatus } from '../../core/models/monitoring';
 import { ALL_DB_TYPES, CATEGORY_FALLBACK, QUERY_COLORS } from '../constants';
 import { DateRangePickerComponent } from '../overlays/date-range-picker';
+import { InfoPopoverComponent } from '../overlays/info-popover';
 import { SkeletonDirective } from '../ui/skeleton';
 import { categoryColor, categoryDescription, categoryRank } from '../utils/category';
 import { nyToday } from '../utils/ny-date';
@@ -56,6 +57,7 @@ type Draft = { rowStatus: RowStatus; rowComment: string | null };
     EmptyColumnsToggleComponent,
     ExcelExportButtonComponent,
     DateRangePickerComponent,
+    InfoPopoverComponent,
     SkeletonDirective,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -91,6 +93,7 @@ export class AllCasesComponent {
 
   private readonly grid = viewChild(AgGridAngular);
 
+  protected readonly allCasesDescription = ALL_CASES_DESCRIPTION;
   protected readonly allDbTypes = ALL_DB_TYPES;
   protected readonly statusOptions = STATUS_OPTIONS;
   protected readonly skeletonRows = Array.from({ length: 8 });
