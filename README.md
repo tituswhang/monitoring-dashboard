@@ -409,7 +409,8 @@ Repo-root config files:
   (`dist/monitoring-dashboard/browser`, relative to base), and a catch-all redirect to
   `index.html`. The redirect is required: the app routes on real paths (`/query/42`), so
   without it every deep link and refresh would 404.
-- **`.nvmrc`** — pins Node 20 (Angular 21 requires Node 20.19+)
+- **`.nvmrc`** — pins Node 22. Angular 21 requires `^20.19.0 || ^22.12.0 || >=24.0.0`; a bare
+  `20` resolves to whatever 20.x the build image ships, which may predate 20.19 and fail.
 
 Steps:
 
