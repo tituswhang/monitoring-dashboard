@@ -409,9 +409,17 @@ All 12 portal sites → Material / CDK Overlay. Per §2.3, Material supplies beh
 supplies the visuals. Every dialog gets focus-trapping and Escape handling by default — verify
 both, since the React original had neither.
 
-> **Build gotcha:** `ng build` finishes in ~10s but **the CLI process does not exit** on
-> Windows. Anything that waits for the process to terminate will appear to hang. Redirect to
-> a log and read it (`ng build > build.log 2>&1`) rather than waiting on exit status.
+> **Build gotcha — `ng build` never exits.** `@angular/build` spawns esbuild as a child
+> process and does not stop it; the child's IPC handle holds Node's event loop open. The
+> bundle is written and "Application bundle generation complete" prints, then the process
+> hangs indefinitely — after a *failed* build too. Not platform-specific: it cost an 18-minute
+> Netlify timeout on a build that finished in 15 seconds, reported as a build failure even
+> though `dist/` was complete.
+>
+> `npm run build` therefore goes through `frontend/scripts/build.mjs`, which watches for
+> either terminal marker and exits with the real status. `npm run build:raw` is the
+> unwrapped command. Drop the wrapper once `timeout 60 npx ng build; echo $?` returns
+> something other than 124.
 
 **Modals (7) → `MatDialog`:**
 - [ ] `EditQueryModal` (`:2452`)
